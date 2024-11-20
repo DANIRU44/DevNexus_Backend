@@ -23,10 +23,7 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
             user = User.objects.get(username=username)
         except User.DoesNotExist:
             return Response({"error": "User  not found"}, status=404)
-        
-        if request.user != user:
-            return Response({"error": "You can only update your own profile"}, status=403)
-        
+               
         serializer = UserProfileSerializer(user, data=request.data)
 
         if serializer.is_valid():
