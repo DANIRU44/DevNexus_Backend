@@ -6,4 +6,7 @@ env/
 __pycache__
 db.sqlite3
 media
+static
+.mypy_cache
 .vscode
+.env
