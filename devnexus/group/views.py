@@ -4,8 +4,7 @@ from rest_framework import status
 from .models import Group
 from user.models import User
 from .serializers import GroupSerializer, GroupCreateSerializer, AddMemberToGroupSerializer
-from django.shortcuts import get_object_or_404
-
+from .permissions import IsGroupMember
 
 
 class GroupCreateView(generics.CreateAPIView):
@@ -21,12 +20,13 @@ class GroupCreateView(generics.CreateAPIView):
 class GroupDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsGroupMember]
+    lookup_field = 'group_uuid'
 
-    def get_object(self):
-        # Переопределяем метод для получения группы по group_uuid
-        group_uuid = self.kwargs.get('group_uuid')
-        return get_object_or_404(Group, group_uuid=group_uuid)
+    # def get_object(self):
+    #     # Переопределяем метод для получения группы по group_uuid
+    #     group_uuid = self.kwargs.get('group_uuid')
+    #     return get_object_or_404(Group, group_uuid=group_uuid)
 
     def perform_update(self, serializer):
         serializer.save()
@@ -35,12 +35,13 @@ class GroupDetailView(generics.RetrieveUpdateDestroyAPIView):
 class AddMemberToGroupView(generics.UpdateAPIView):
     queryset = Group.objects.all()
     serializer_class = AddMemberToGroupSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsGroupMember]
+    lookup_field = 'group_uuid'
     
-    def get_object(self):
-        # Переопределяем метод для получения группы по group_uuid
-        group_uuid = self.kwargs.get('group_uuid')
-        return get_object_or_404(Group, group_uuid=group_uuid)
+    # def get_object(self):
+    #     # Переопределяем метод для получения группы по group_uuid
+    #     group_uuid = self.kwargs.get('group_uuid')
+    #     return get_object_or_404(Group, group_uuid=group_uuid)
     
     def patch(self, request, *args, **kwargs):
             group = self.get_object()
