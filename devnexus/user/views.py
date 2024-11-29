@@ -1,5 +1,6 @@
 from rest_framework import generics, permissions
 from rest_framework.response import Response
+from rest_framework import mixins
 from django.contrib.auth import login
 from .serializers import *
 from .permissions import IsOwnerOrReadOnly
@@ -12,24 +13,34 @@ class RegisterView(generics.CreateAPIView):
     permission_classes = [permissions.AllowAny]
 
 
-class UserProfileView(generics.RetrieveUpdateAPIView):
+class UserProfileView(mixins.RetrieveModelMixin,
+                            mixins.UpdateModelMixin,
+                            generics.GenericAPIView):
+    
     queryset = User.objects.all()
     serializer_class = UserProfileSerializer
     permission_classes = [IsOwnerOrReadOnly]
     lookup_field = 'username'
 
-    def put(self, request, username):
-        try:
-            user = User.objects.get(username=username)
-        except User.DoesNotExist:
-            return Response({"error": "User  not found"}, status=404)
-               
-        serializer = UserProfileSerializer(user, data=request.data)
+    def get(self, request, *args, **kwargs):
+        return self.retrieve(request, *args, **kwargs)
 
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=200)
-        return Response(serializer.errors, status=400)
+    def put(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
+    
+    # def put(self, request, username):
+    #     try:
+    #         user = User.objects.get(username=username)
+    #     except User.DoesNotExist:
+    #         return Response({"error": "User  not found"}, status=404)
+        
+    #     self.check_object_permissions(request, user)
+    #     serializer = UserProfileSerializer(user, data=request.data)
+
+    #     if serializer.is_valid():
+    #         serializer.save()
+    #         return Response(serializer.data, status=200)
+    #     return Response(serializer.errors, status=400)
 
 
 
