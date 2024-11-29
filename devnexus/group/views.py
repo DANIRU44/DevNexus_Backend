@@ -46,7 +46,8 @@ class GroupDetailView(mixins.RetrieveModelMixin,
         serializer.save()
 
 
-class AddMemberToGroupView(generics.UpdateAPIView):
+class AddMemberToGroupView(mixins.UpdateModelMixin,
+                            generics.GenericAPIView):
     queryset = Group.objects.all()
     serializer_class = AddMemberToGroupSerializer
     permission_classes = [IsGroupMember]
@@ -57,7 +58,7 @@ class AddMemberToGroupView(generics.UpdateAPIView):
     #     group_uuid = self.kwargs.get('group_uuid')
     #     return get_object_or_404(Group, group_uuid=group_uuid)
     
-    def patch(self, request, *args, **kwargs):
+    def put(self, request, *args, **kwargs):
             group = self.get_object()
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
