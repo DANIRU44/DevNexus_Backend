@@ -1,6 +1,7 @@
 from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework import mixins
 from .models import Group
 from user.models import User
 from .serializers import GroupSerializer, GroupCreateSerializer, AddMemberToGroupSerializer
@@ -17,12 +18,25 @@ class GroupCreateView(generics.CreateAPIView):
         group.members.add(self.request.user)
 
 
-class GroupDetailView(generics.RetrieveUpdateDestroyAPIView):
+class GroupDetailView(mixins.RetrieveModelMixin,
+                      mixins.UpdateModelMixin,
+                      mixins.DestroyModelMixin,
+                      generics.GenericAPIView):
+    
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
     permission_classes = [IsGroupMember]
     lookup_field = 'group_uuid'
 
+    def get(self, request, *args, **kwargs):
+        return self.retrieve(request, *args, **kwargs)
+
+    def put(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
+
+    def delete(self, request, *args, **kwargs):
+        return self.destroy(request, *args, **kwargs)
+    
     # def get_object(self):
     #     # Переопределяем метод для получения группы по group_uuid
     #     group_uuid = self.kwargs.get('group_uuid')
