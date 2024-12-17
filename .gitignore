@@ -10,3 +10,4 @@ static
 .mypy_cache
 .vscode
 .env
+fixtures/
