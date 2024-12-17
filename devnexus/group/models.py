@@ -36,13 +36,12 @@ class Card(models.Model):
     code = models.CharField(max_length=6, unique=True, editable=False)  # Уникальный шестизначный код карточки
     title = models.CharField(max_length=100)
     description = models.TextField(blank=True, max_length=700)
-    status = models.CharField(max_length=50, choices=[('todo', 'Сделать'), ('in_progress', 'В процесс'), ('done', 'Готово')])
+    status = models.CharField(max_length=50, choices=[('todo', 'Сделать'), ('in_progress', 'В процесс'), ('done', 'Готово')], default='todo')
     assignee = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     start_date = models.DateTimeField(null=True, blank=True)
     end_date = models.DateTimeField(null=True, blank=True)
     priority = models.IntegerField(choices=[(1, 'Низкий'), (2, 'Средний'), (3, 'Высокий')], default=2)
-    labels = models.ManyToManyField('Label', blank=True)
     group = models.ForeignKey(Group, on_delete=models.CASCADE)
 
     class Meta:
@@ -65,9 +64,3 @@ class Card(models.Model):
 
     def __str__(self):
         return f"{self.group.name} {self.title} {self.code}"
-
-
-class Label(models.Model):
-    """Метки, которые могут быть присвоены карточкам."""
-    name = models.CharField(max_length=50)
-    color = models.CharField(max_length=7, null=True, blank=True)  # HEX
