@@ -29,7 +29,28 @@ class GroupDetailView(mixins.RetrieveModelMixin,
     lookup_field = 'group_uuid'
 
     def get(self, request, *args, **kwargs):
-        return self.retrieve(request, *args, **kwargs)
+        group = self.get_object()
+        serializer = self.get_serializer(group)
+
+        cards = Card.objects.filter(group=group)
+        cards_serializer = CardSerializer(cards, many=True)
+
+        # Сортируем карточки 
+        grouped_cards = {
+            'todo': [],
+            'in_progress': [],
+            'done': []
+        }
+
+        for card in cards_serializer.data:
+            status = card['status']
+            if status in grouped_cards:
+                grouped_cards[status].append(card)
+
+        response_data = serializer.data
+        response_data['board'] = grouped_cards
+
+        return Response(response_data)
 
     def put(self, request, *args, **kwargs):
         return self.update(request, *args, **kwargs)
@@ -86,14 +107,28 @@ class CardCreateView(generics.CreateAPIView):
         serializer.save(group=group)
 
 
-class CardListView(generics.ListAPIView):
+class CardListView(generics.GenericAPIView):
     serializer_class = CardSerializer
     lookup_field = 'code'
 
-    def get_queryset(self):
+    def get(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
         group = Group.objects.get(group_uuid=group_uuid)
-        return Card.objects.filter(group=group)
+        cards = Card.objects.filter(group=group)
+        cards_serializer = CardSerializer(cards, many=True)
+
+        grouped_cards = {
+            'todo': [],
+            'in_progress': [],
+            'done': []
+        }
+
+        for card in cards_serializer.data:
+            status = card['status']  # Получаем статус карточки
+            if status in grouped_cards:
+                grouped_cards[status].append(card)  # Добавляем карточку в соответствующий 
+
+        return Response(grouped_cards)
 
 
 class CardDetailView(mixins.RetrieveModelMixin,
