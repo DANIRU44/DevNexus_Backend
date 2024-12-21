@@ -1,9 +1,19 @@
 from rest_framework import serializers
 from user.serializers import UserSerializer
-from .models import Group
+from .models import Group, Card
+
+
+class CardSerializer(serializers.ModelSerializer):
+    assignee = UserSerializer()
+
+    class Meta:
+        model = Card
+        fields = ['title', 'description', 'status', 'assignee', 'start_date', 'end_date', 'priority']
+
 
 class GroupSerializer(serializers.ModelSerializer):
     members = UserSerializer(many=True, read_only=True)
+    admin = UserSerializer(read_only=True)
 
     class Meta:
         model = Group
