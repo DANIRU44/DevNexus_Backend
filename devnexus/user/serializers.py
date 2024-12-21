@@ -33,7 +33,7 @@ class LoginSerializer(serializers.Serializer):
 
         user = authenticate(username=username, password=password)
         if user is None:
-            raise serializers.ValidationError('Invalid username or password.')
+            raise serializers.ValidationError('Не правильный юзернейм или пароль')
 
         attrs['user'] = user
         return attrs
