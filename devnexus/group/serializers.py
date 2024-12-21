@@ -4,7 +4,7 @@ from .models import Group, Card
 
 
 class CardSerializer(serializers.ModelSerializer):
-    assignee = UserSerializer(read_only=True)
+    assignee = UserSerializer()
 
     class Meta:
         model = Card
@@ -13,6 +13,7 @@ class CardSerializer(serializers.ModelSerializer):
 
 class GroupSerializer(serializers.ModelSerializer):
     members = UserSerializer(many=True, read_only=True)
+    admin = UserSerializer(read_only=True)
 
     class Meta:
         model = Group

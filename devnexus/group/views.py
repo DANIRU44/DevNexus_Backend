@@ -137,23 +137,49 @@ class CardDetailView(mixins.RetrieveModelMixin,
                                    generics.GenericAPIView):
     serializer_class = CardSerializer
     lookup_field = 'code'
+    queryset = Card.objects.all()
 
     def get(self, request, *args, **kwargs):
-        return self.retrieve(request, *args, **kwargs)
-
-    def put(self, request, *args, **kwargs):
-        return self.update(request, *args, **kwargs)
-
-    def delete(self, request, *args, **kwargs):
-        return self.destroy(request, *args, **kwargs)
-    
-    def get_object(self):
         group_uuid = self.kwargs['group_uuid']
         code = self.kwargs['code']
-        group = Group.objects.get(group_uuid=group_uuid)
         try:
-            return Card.objects.get(code=code, group=group)
+            group = Group.objects.get(group_uuid=group_uuid)
+            card = Card.objects.get(code=code, group=group)
+            serialized_card = CardSerializer(card)
+
+            return Response(serialized_card.data) 
+        
         except Card.DoesNotExist:
             return Response({"error": "Такой карточки не существует"}, status=status.HTTP_404_NOT_FOUND)
+        except Group.DoesNotExist:
+            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
+
+    def put(self, request, *args, **kwargs):
+        group_uuid = self.kwargs['group_uuid']
+        code = self.kwargs['code']
+        try:
+            group = Group.objects.get(group_uuid=group_uuid)
+            card = Card.objects.get(code=code, group=group)
+            return self.update(request, *args, **kwargs)
+        
+        except Group.DoesNotExist:
+            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
+        except Card.DoesNotExist:
+            return Response({"error": "Такой карточки не существует"}, status=status.HTTP_404_NOT_FOUND)
+
+    def delete(self, request, *args, **kwargs):
+        group_uuid = self.kwargs['group_uuid']
+        code = self.kwargs['code']
+
+        try:
+            group = Group.objects.get(group_uuid=group_uuid)
+            card = Card.objects.get(code=code, group=group)
+            return self.destroy(request, *args, **kwargs)
+        
+        except Group.DoesNotExist:
+            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
+        except Card.DoesNotExist:
+            return Response({"error": "Такой карточки не существует"}, status=status.HTTP_404_NOT_FOUND)
+
 
 
