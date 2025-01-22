@@ -2,9 +2,9 @@ from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import mixins
-from .models import Group, Card
+from .models import Group, Card, GroupTag
 from user.models import User
-from .serializers import GroupSerializer, GroupCreateSerializer, AddMemberToGroupSerializer, CardSerializer
+from .serializers import GroupSerializer, GroupCreateSerializer, AddMemberToGroupSerializer, CardSerializer, GroupTagSerializer, GroupTagCreateSerializer
 from .permissions import IsGroupMember
 
 
@@ -182,4 +182,78 @@ class CardDetailView(mixins.RetrieveModelMixin,
             return Response({"error": "Такой карточки не существует"}, status=status.HTTP_404_NOT_FOUND)
 
 
+class GroupTagCreateView(generics.CreateAPIView):
+    serializer_class = GroupTagCreateSerializer
+    lookup_field = 'code'
 
+
+class GroupTagListView(generics.GenericAPIView):
+    serializer_class = GroupTagSerializer
+
+    def get_queryset(self, group_uuid):
+        try:
+            group = Group.objects.get(group_uuid=group_uuid)
+            return GroupTag.objects.filter(group=group)
+        except Group.DoesNotExist:
+            return None
+
+    def get(self, request, *args, **kwargs):
+        group_uuid = self.kwargs['group_uuid']
+        tags = self.get_queryset(group_uuid)
+
+        if tags is None:
+            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.get_serializer(tags, many=True)
+        return Response(serializer.data)
+    
+
+class GroupTagDetailView(mixins.RetrieveModelMixin,
+                                   mixins.UpdateModelMixin,
+                                   mixins.DestroyModelMixin,
+                                   generics.GenericAPIView):
+    queryset = GroupTag.objects.all()
+    serializer_class = GroupTagSerializer
+    lookup_field = 'code' 
+
+    def get(self, request, *args, **kwargs):
+        group_uuid = self.kwargs['group_uuid']
+        code = self.kwargs['code']
+        try:
+            group = Group.objects.get(group_uuid=group_uuid)
+            tag = GroupTag.objects.get(code=code, group=group)
+            serialized_grouptag = GroupTagSerializer(tag)
+
+            return Response(serialized_grouptag.data) 
+        
+        except GroupTag.DoesNotExist:
+            return Response({"error": "Такого тега не существует"}, status=status.HTTP_404_NOT_FOUND)
+        except Group.DoesNotExist:
+            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
+
+    def put(self, request, *args, **kwargs):
+        group_uuid = self.kwargs['group_uuid']
+        code = self.kwargs['code']
+        try:
+            group = Group.objects.get(group_uuid=group_uuid)
+            tag = GroupTag.objects.get(code=code, group=group)
+            return self.update(request, *args, **kwargs)
+        
+        except Group.DoesNotExist:
+            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
+        except GroupTag.DoesNotExist:
+            return Response({"error": "Такого тега не существует"}, status=status.HTTP_404_NOT_FOUND)
+
+    def delete(self, request, *args, **kwargs):
+        group_uuid = self.kwargs['group_uuid']
+        code = self.kwargs['code']
+
+        try:
+            group = Group.objects.get(group_uuid=group_uuid)
+            tag = GroupTag.objects.get(code=code, group=group)
+            return self.destroy(request, *args, **kwargs)
+        
+        except Group.DoesNotExist:
+            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
+        except Card.DoesNotExist:
+            return Response({"error": "Такого тега не существует"}, status=status.HTTP_404_NOT_FOUND)
