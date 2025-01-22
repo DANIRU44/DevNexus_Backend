@@ -26,7 +26,7 @@ class GroupTag(models.Model):
     code = models.CharField(max_length=6, unique=True, editable=False)
     name = models.CharField(max_length=50)
     color = models.CharField(max_length=20)
-    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='available_tags')
+    group = models.ForeignKey(Group, to_field='group_uuid', on_delete=models.CASCADE, related_name='available_tags')
 
     class Meta:
         unique_together = ('name', 'color', 'group')
@@ -49,11 +49,11 @@ class GroupTag(models.Model):
 
 
 class UserTag(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    tag = models.ForeignKey(GroupTag, on_delete=models.CASCADE)
+    username = models.ForeignKey(User, to_field='username', on_delete=models.CASCADE)
+    tag = models.ForeignKey(GroupTag, to_field='code', on_delete=models.CASCADE)
 
     class Meta:
-        unique_together = ('user', 'tag')
+        unique_together = ('username', 'tag')
 
     def __str__(self):
         return f"{self.user.username} - {self.tag.name}"
