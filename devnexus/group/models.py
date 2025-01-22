@@ -21,15 +21,29 @@ class Group(models.Model):
         return self.name
 
 
+# решил разделить одну модель с тегами на две, так-как это позволит присваивать существующие теги, а не прописывать их каждый раз 
 class GroupTag(models.Model):
     name = models.CharField(max_length=50)
     color = models.CharField(max_length=20)
-    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='tags')
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='available_tags')
+
+    class Meta:
+        unique_together = ('name', 'color', 'group')
 
     def __str__(self):
         return f"{self.name} ({self.group.name})"
-    
+
+
+class UserTag(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    tag = models.ForeignKey(GroupTag, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ('user', 'tag')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.tag.name}"
+
 
 class Card(models.Model):
     """Карточки с заданиями в группах"""
