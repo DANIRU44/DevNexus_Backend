@@ -1,14 +1,27 @@
 from rest_framework import serializers
+from user.models import User
 from user.serializers import UserSerializer
 from .models import Group, Card, GroupTag, UserTag
 
 
 class CardSerializer(serializers.ModelSerializer):
-    assignee = UserSerializer()
+    assignee = serializers.CharField()
 
     class Meta:
         model = Card
         fields = ['title', 'description', 'status', 'assignee', 'start_date', 'end_date', 'priority']
+
+# боже оно работает!
+    def create(self, validated_data):
+        assignee_username = validated_data.pop('assignee')
+
+        try:
+            user = User.objects.get(username=assignee_username)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Пользователь с таким именем не найден.")
+
+        card = Card.objects.create(assignee=user, **validated_data)
+        return card
 
 
 class GroupSerializer(serializers.ModelSerializer):
