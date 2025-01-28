@@ -2,9 +2,10 @@ from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import mixins
+from rest_framework.exceptions import NotFound, ValidationError
 from .models import Group, Card, GroupTag, UserTag
 from user.models import User
-from .serializers import GroupSerializer, GroupCreateSerializer, AddMemberToGroupSerializer, CardSerializer, GroupTagSerializer, GroupTagCreateSerializer
+from .serializers import *
 from .permissions import IsGroupMember
 
 
@@ -97,13 +98,34 @@ class AddMemberToGroupView(mixins.UpdateModelMixin,
             group.save()
 
 
+# class CardCreateView(generics.CreateAPIView):
+#     serializer_class = CardSerializer
+#     lookup_field = 'code'
+
+#     def perform_create(self, serializer):
+#         group_uuid = self.kwargs['group_uuid']
+#         group = Group.objects.get(group_uuid=group_uuid)
+#         serializer.save(group=group)
+
 class CardCreateView(generics.CreateAPIView):
     serializer_class = CardSerializer
     lookup_field = 'code'
 
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
-        group = Group.objects.get(group_uuid=group_uuid)
+
+        try:
+            group = Group.objects.get(group_uuid=group_uuid)
+        except Group.DoesNotExist:
+            return Response({"error": "Группа не найдена."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        self.perform_create(serializer, group)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def perform_create(self, serializer, group):
         serializer.save(group=group)
 
 
@@ -182,19 +204,45 @@ class CardDetailView(mixins.RetrieveModelMixin,
             return Response({"error": "Такой карточки не существует"}, status=status.HTTP_404_NOT_FOUND)
 
 
+# class GroupTagCreateView(generics.CreateAPIView):
+#     serializer_class = GroupTagCreateSerializer
+
+#     def perform_create(self, serializer):
+#         group_uuid = self.kwargs['group_uuid']
+#         group = Group.objects.get(group_uuid=group_uuid)
+
+#         name = serializer.validated_data['name']
+#         color = serializer.validated_data['color']
+
+#         if GroupTag.objects.filter(name=name, color=color, group=group).exists():
+#             return Response({"error": "Такой тег уже существует в этой группе."})
+
+#         serializer.save(group=group)
+
 class GroupTagCreateView(generics.CreateAPIView):
     serializer_class = GroupTagCreateSerializer
 
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
-        group = Group.objects.get(group_uuid=group_uuid)
+
+        try:
+            group = Group.objects.get(group_uuid=group_uuid)
+        except Group.DoesNotExist:
+            return Response({"error": "Группа не найдена."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
         name = serializer.validated_data['name']
         color = serializer.validated_data['color']
 
         if GroupTag.objects.filter(name=name, color=color, group=group).exists():
-            return Response({"error": "Такой тег уже существует в этой группе."})
+            raise ValidationError({"error": "Такой тег уже существует в этой группе."})
 
+        self.perform_create(serializer, group)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def perform_create(self, serializer, group):
         serializer.save(group=group)
 
 
@@ -268,3 +316,35 @@ class GroupTagDetailView(mixins.RetrieveModelMixin,
             return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
         except GroupTag.DoesNotExist:
             return Response({"error": "Такого тега не существует"}, status=status.HTTP_404_NOT_FOUND)
+        
+
+class UserTagCreateView(generics.CreateAPIView):
+    queryset = UserTag.objects.all()
+    serializer_class = UserTagSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        username=serializer.validated_data['username']
+        tag=serializer.validated_data['tag']
+
+        if UserTag.objects.filter(username=username, tag=tag).exists():
+            raise ValidationError("Связь между пользователем и тегом уже существует.")
+
+        self.perform_create(serializer)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class UserTagDeleteView(generics.DestroyAPIView):
+    queryset = UserTag.objects.all()
+    serializer_class = UserTagSerializer
+
+    def delete(self, request, username, tag, *args, **kwargs):
+        # Пытаемся найти объект UserTag по username и tag
+        try:
+            instance = UserTag.objects.get(username=username, tag=tag)
+            self.perform_destroy(instance)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except UserTag.DoesNotExist:
+            raise NotFound("Связь не найдена.")
