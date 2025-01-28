@@ -2,9 +2,10 @@ from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import mixins
+from rest_framework.exceptions import NotFound, ValidationError
 from .models import Group, Card, GroupTag, UserTag
 from user.models import User
-from .serializers import GroupSerializer, GroupCreateSerializer, AddMemberToGroupSerializer, CardSerializer, GroupTagSerializer, GroupTagCreateSerializer
+from .serializers import *
 from .permissions import IsGroupMember
 
 
@@ -268,3 +269,35 @@ class GroupTagDetailView(mixins.RetrieveModelMixin,
             return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
         except GroupTag.DoesNotExist:
             return Response({"error": "Такого тега не существует"}, status=status.HTTP_404_NOT_FOUND)
+        
+
+class UserTagCreateView(generics.CreateAPIView):
+    queryset = UserTag.objects.all()
+    serializer_class = UserTagSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        username=serializer.validated_data['username']
+        tag=serializer.validated_data['tag']
+
+        if UserTag.objects.filter(username=username, tag=tag).exists():
+            raise ValidationError("Связь между пользователем и тегом уже существует.")
+
+        self.perform_create(serializer)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class UserTagDeleteView(generics.DestroyAPIView):
+    queryset = UserTag.objects.all()
+    serializer_class = UserTagSerializer
+
+    def delete(self, request, username, tag, *args, **kwargs):
+        # Пытаемся найти объект UserTag по username и tag
+        try:
+            instance = UserTag.objects.get(username=username, tag=tag)
+            self.perform_destroy(instance)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except UserTag.DoesNotExist:
+            raise NotFound("Связь не найдена.")

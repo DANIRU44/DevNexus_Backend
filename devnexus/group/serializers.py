@@ -43,3 +43,9 @@ class GroupTagSerializer(serializers.ModelSerializer):
         model = GroupTag
         fields = ['code', 'name', 'color']
         read_only_fields = ['id', 'code']
+
+
+class UserTagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserTag
+        fields = ['username', 'tag']
