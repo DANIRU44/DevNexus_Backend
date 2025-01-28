@@ -98,13 +98,34 @@ class AddMemberToGroupView(mixins.UpdateModelMixin,
             group.save()
 
 
+# class CardCreateView(generics.CreateAPIView):
+#     serializer_class = CardSerializer
+#     lookup_field = 'code'
+
+#     def perform_create(self, serializer):
+#         group_uuid = self.kwargs['group_uuid']
+#         group = Group.objects.get(group_uuid=group_uuid)
+#         serializer.save(group=group)
+
 class CardCreateView(generics.CreateAPIView):
     serializer_class = CardSerializer
     lookup_field = 'code'
 
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
-        group = Group.objects.get(group_uuid=group_uuid)
+
+        try:
+            group = Group.objects.get(group_uuid=group_uuid)
+        except Group.DoesNotExist:
+            return Response({"error": "Группа не найдена."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        self.perform_create(serializer, group)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def perform_create(self, serializer, group):
         serializer.save(group=group)
 
 
@@ -183,19 +204,45 @@ class CardDetailView(mixins.RetrieveModelMixin,
             return Response({"error": "Такой карточки не существует"}, status=status.HTTP_404_NOT_FOUND)
 
 
+# class GroupTagCreateView(generics.CreateAPIView):
+#     serializer_class = GroupTagCreateSerializer
+
+#     def perform_create(self, serializer):
+#         group_uuid = self.kwargs['group_uuid']
+#         group = Group.objects.get(group_uuid=group_uuid)
+
+#         name = serializer.validated_data['name']
+#         color = serializer.validated_data['color']
+
+#         if GroupTag.objects.filter(name=name, color=color, group=group).exists():
+#             return Response({"error": "Такой тег уже существует в этой группе."})
+
+#         serializer.save(group=group)
+
 class GroupTagCreateView(generics.CreateAPIView):
     serializer_class = GroupTagCreateSerializer
 
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
-        group = Group.objects.get(group_uuid=group_uuid)
+
+        try:
+            group = Group.objects.get(group_uuid=group_uuid)
+        except Group.DoesNotExist:
+            return Response({"error": "Группа не найдена."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
         name = serializer.validated_data['name']
         color = serializer.validated_data['color']
 
         if GroupTag.objects.filter(name=name, color=color, group=group).exists():
-            return Response({"error": "Такой тег уже существует в этой группе."})
+            raise ValidationError({"error": "Такой тег уже существует в этой группе."})
 
+        self.perform_create(serializer, group)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def perform_create(self, serializer, group):
         serializer.save(group=group)
 
 
