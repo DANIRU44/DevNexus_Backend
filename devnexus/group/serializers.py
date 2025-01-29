@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from user.models import User
-from user.serializers import UserSerializer
+from user.serializers import UserProfileSerializer
 from .models import Group, Card, GroupTag, UserTag
 
 
@@ -25,8 +25,8 @@ class CardSerializer(serializers.ModelSerializer):
 
 
 class GroupSerializer(serializers.ModelSerializer):
-    members = UserSerializer(many=True, read_only=True)
-    admin = UserSerializer(read_only=True)
+    members = UserProfileSerializer(many=True, read_only=True)
+    admin = UserProfileSerializer(read_only=True)
 
     class Meta:
         model = Group
