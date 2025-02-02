@@ -49,11 +49,11 @@ class GroupTag(models.Model):
 
 
 class UserTag(models.Model):
-    username = models.ForeignKey(User, to_field='username', on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     tag = models.ForeignKey(GroupTag, to_field='code', on_delete=models.CASCADE)
 
     class Meta:
-        unique_together = ('username', 'tag')
+        unique_together = ('user', 'tag')
 
     def __str__(self):
         return f"{self.user.username} - {self.tag.name}"
