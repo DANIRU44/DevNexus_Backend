@@ -39,6 +39,12 @@ class GroupCreateSerializer(serializers.ModelSerializer):
         fields = ['name']
 
 
+class GroupSerializerForProfile(serializers.ModelSerializer):
+    class Meta:
+        model = Group
+        fields = ['id', 'group_uuid', 'name', 'icon']
+
+
 class AddMemberToGroupSerializer(serializers.Serializer):
     username = serializers.CharField(required=True)
 
