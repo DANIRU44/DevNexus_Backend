@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import mixins
 from rest_framework.exceptions import NotFound, ValidationError
-from .models import Group, Card, GroupTag, UserTag
+from .models import Group, Card, GroupTag, UserTag, CardTag
 from user.models import User
 from .serializers import *
 from .permissions import IsGroupMember
@@ -97,15 +97,6 @@ class AddMemberToGroupView(mixins.UpdateModelMixin,
             group.members.add(user)
             group.save()
 
-
-# class CardCreateView(generics.CreateAPIView):
-#     serializer_class = CardSerializer
-#     lookup_field = 'code'
-
-#     def perform_create(self, serializer):
-#         group_uuid = self.kwargs['group_uuid']
-#         group = Group.objects.get(group_uuid=group_uuid)
-#         serializer.save(group=group)
 
 class CardCreateView(generics.CreateAPIView):
     serializer_class = CardSerializer
@@ -203,21 +194,6 @@ class CardDetailView(mixins.RetrieveModelMixin,
         except Card.DoesNotExist:
             return Response({"error": "Такой карточки не существует"}, status=status.HTTP_404_NOT_FOUND)
 
-
-# class GroupTagCreateView(generics.CreateAPIView):
-#     serializer_class = GroupTagCreateSerializer
-
-#     def perform_create(self, serializer):
-#         group_uuid = self.kwargs['group_uuid']
-#         group = Group.objects.get(group_uuid=group_uuid)
-
-#         name = serializer.validated_data['name']
-#         color = serializer.validated_data['color']
-
-#         if GroupTag.objects.filter(name=name, color=color, group=group).exists():
-#             return Response({"error": "Такой тег уже существует в этой группе."})
-
-#         serializer.save(group=group)
 
 class GroupTagCreateView(generics.CreateAPIView):
     serializer_class = GroupTagCreateSerializer
@@ -348,3 +324,102 @@ class UserTagDeleteView(generics.DestroyAPIView):
             return Response(status=status.HTTP_204_NO_CONTENT)
         except UserTag.DoesNotExist:
             raise NotFound("Связь не найдена.")
+        
+
+class GroupCardTagCreateView(generics.CreateAPIView):
+    serializer_class = GroupCardTagCreateSerializer
+
+    def create(self, request, *args, **kwargs):
+        group_uuid = self.kwargs['group_uuid']
+
+        try:
+            group = Group.objects.get(group_uuid=group_uuid)
+        except Group.DoesNotExist:
+            return Response({"error": "Группа не найдена."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        name = serializer.validated_data['name']
+        color = serializer.validated_data['color']
+
+        if CardTag.objects.filter(name=name, color=color, group=group).exists():
+            raise ValidationError({"error": "Такой тег уже существует в этой группе."})
+
+        self.perform_create(serializer, group)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def perform_create(self, serializer, group):
+        serializer.save(group=group)
+
+
+class GroupCardTagListView(generics.GenericAPIView):
+    serializer_class = GroupCardTagSerializer
+
+    def get_queryset(self, group_uuid):
+        try:
+            group = Group.objects.get(group_uuid=group_uuid)
+            return CardTag.objects.filter(group=group)
+        except Group.DoesNotExist:
+            return None
+
+    def get(self, request, *args, **kwargs):
+        group_uuid = self.kwargs['group_uuid']
+        tags = self.get_queryset(group_uuid)
+
+        if tags is None:
+            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.get_serializer(tags, many=True)
+        return Response(serializer.data)
+
+
+class GroupCardTagDetailView(mixins.RetrieveModelMixin,
+                                   mixins.UpdateModelMixin,
+                                   mixins.DestroyModelMixin,
+                                   generics.GenericAPIView):
+    queryset = CardTag.objects.all()
+    serializer_class = GroupCardTagSerializer
+    lookup_field = 'code' 
+
+    def get(self, request, *args, **kwargs):
+        group_uuid = self.kwargs['group_uuid']
+        code = self.kwargs['code']
+        try:
+            group = Group.objects.get(group_uuid=group_uuid)
+            tag = CardTag.objects.get(code=code, group=group)
+            serialized_grouptag = GroupCardTagSerializer(tag)
+
+            return Response(serialized_grouptag.data) 
+        
+        except CardTag.DoesNotExist:
+            return Response({"error": "Такого тега не существует"}, status=status.HTTP_404_NOT_FOUND)
+        except Group.DoesNotExist:
+            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
+
+    def put(self, request, *args, **kwargs):
+        group_uuid = self.kwargs['group_uuid']
+        code = self.kwargs['code']
+        try:
+            group = Group.objects.get(group_uuid=group_uuid)
+            tag = CardTag.objects.get(code=code, group=group)
+            return self.update(request, *args, **kwargs)
+        
+        except Group.DoesNotExist:
+            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
+        except CardTag.DoesNotExist:
+            return Response({"error": "Такого тега не существует"}, status=status.HTTP_404_NOT_FOUND)
+
+    def delete(self, request, *args, **kwargs):
+        group_uuid = self.kwargs['group_uuid']
+        code = self.kwargs['code']
+
+        try:
+            group = Group.objects.get(group_uuid=group_uuid)
+            tag = CardTag.objects.get(code=code, group=group)
+            return self.destroy(request, *args, **kwargs)
+        
+        except Group.DoesNotExist:
+            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
+        except CardTag.DoesNotExist:
+            return Response({"error": "Такого тега не существует"}, status=status.HTTP_404_NOT_FOUND)
