@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from user.models import User
 from user.serializers import UserProfileSerializer
-from .models import Group, Card, GroupTag, UserTag
+from .models import Group, Card, GroupTag, UserTag, CardTag
 
 
 class CardSerializer(serializers.ModelSerializer):
@@ -67,4 +67,25 @@ class GroupTagSerializer(serializers.ModelSerializer):
 class UserTagSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserTag
-        fields = ['username', 'tag']
+        fields = ['user', 'tag']
+
+
+class GroupCardTagCreateSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = CardTag
+        fields = ['name', 'color']
+
+
+class GroupCardTagSerializer(serializers.ModelSerializer):
+   
+    class Meta:
+        model = CardTag
+        fields = ['code', 'name', 'color']
+        read_only_fields = ['id', 'code']
+
+
+# class CardTagSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = UserTag
+#         fields = ['username', 'tag']
