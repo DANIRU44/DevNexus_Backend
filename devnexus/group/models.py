@@ -57,6 +57,32 @@ class UserTag(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.tag.name}"
+    
+
+class CardTag(models.Model):
+    code = models.CharField(max_length=6, unique=True, editable=False)
+    name = models.CharField(max_length=50)
+    color = models.CharField(max_length=20)
+    group = models.ForeignKey(Group, to_field='group_uuid', on_delete=models.CASCADE, related_name='available_card_tags')
+
+    class Meta:
+        unique_together = ('name', 'color', 'group')
+
+    def save(self, *args, **kwargs):
+        # Генерируем уникальный шестизначный код
+        if not self.code:
+            last_card = CardTag.objects.filter(group=self.group).order_by('code').last()
+            if last_card:
+                last_code = int(last_card.code)
+                new_code = last_code + 1
+            else:
+                new_code = 1
+            
+            self.code = f"{new_code:06}"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.name} ({self.group.name})"
 
 
 class Card(models.Model):
