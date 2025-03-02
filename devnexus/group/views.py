@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import mixins
 from rest_framework.exceptions import NotFound, ValidationError
-from .models import Group, Card, GroupTag, UserTag, CardTag
+from .models import Group, Card, GroupTag, UserTag, CardTag, ColumnBoard
 from user.models import User
 from .serializers import *
 from .permissions import IsGroupMember
@@ -30,23 +30,19 @@ class GroupDetailView(mixins.RetrieveModelMixin,
     lookup_field = 'group_uuid'
 
     def get(self, request, *args, **kwargs):
+
         group = self.get_object()
         serializer = self.get_serializer(group)
 
+        columns = ColumnBoard.objects.filter(group=group)
         cards = Card.objects.filter(group=group)
+
         cards_serializer = CardSerializer(cards, many=True)
 
-        # Сортируем карточки 
-        grouped_cards = {
-            'todo': [],
-            'in_progress': [],
-            'done': []
-        }
-
-        for card in cards_serializer.data:
-            status = card['status']
-            if status in grouped_cards:
-                grouped_cards[status].append(card)
+        grouped_cards = {}
+        for column in columns:
+            column_cards = [card for card in cards_serializer.data if card['column'] == column.id]
+            grouped_cards[column.name] = column_cards
 
         response_data = serializer.data
         response_data['board'] = grouped_cards
@@ -125,21 +121,19 @@ class CardListView(generics.GenericAPIView):
     lookup_field = 'code'
 
     def get(self, request, *args, **kwargs):
+
         group_uuid = self.kwargs['group_uuid']
         group = Group.objects.get(group_uuid=group_uuid)
+
+        columns = ColumnBoard.objects.filter(group=group)
+
         cards = Card.objects.filter(group=group)
         cards_serializer = CardSerializer(cards, many=True)
 
-        grouped_cards = {
-            'todo': [],
-            'in_progress': [],
-            'done': []
-        }
-
-        for card in cards_serializer.data:
-            status = card['status']  # Получаем статус карточки
-            if status in grouped_cards:
-                grouped_cards[status].append(card)  # Добавляем карточку в соответствующий 
+        grouped_cards = {}
+        for column in columns:
+            column_cards = [card for card in cards_serializer.data if card['column'] == column.id]
+            grouped_cards[column.name] = column_cards
 
         return Response(grouped_cards)
 
