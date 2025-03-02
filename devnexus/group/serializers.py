@@ -9,7 +9,7 @@ class CardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Card
-        fields = ['title', 'description', 'status', 'assignee', 'start_date', 'end_date', 'priority']
+        fields = ['title', 'description', 'column', 'assignee', 'start_date', 'end_date']
 
 # боже оно работает!
     def create(self, validated_data):
