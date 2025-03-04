@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from user.models import User
 from user.serializers import UserProfileSerializer
-from .models import Group, Card, GroupTag, UserTag, CardTag
+from .models import Group, Card, GroupTag, UserTag, CardTag, ColumnBoard
 
 
 class CardSerializer(serializers.ModelSerializer):
@@ -85,7 +85,9 @@ class GroupCardTagSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'code']
 
 
-# class CardTagSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = UserTag
-#         fields = ['username', 'tag']
+class ColumnBoardSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = ColumnBoard
+        fields = ['name', 'color']
+        read_only_fields = ['id']
