@@ -23,4 +23,7 @@ urlpatterns = [
     path('<str:group_uuid>/cardtag/create/', GroupCardTagCreateView.as_view(), name='cardtag-create'),
     path('<str:group_uuid>/cardtag/all', GroupCardTagListView.as_view(), name='group-cardtags-list'),
     path('<str:group_uuid>/cardtag/<str:code>/', GroupCardTagDetailView.as_view(), name='cardteg-detail'),
+
+    path('<str:group_uuid>/column/create/', ColumnBoardCreateView.as_view(), name='column-create'),
+    path('<str:group_uuid>/column/<id>/', ColumnBoardDetailView.as_view(), name='column-create'),
 ]
