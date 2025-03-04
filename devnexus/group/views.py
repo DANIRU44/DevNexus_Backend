@@ -417,3 +417,83 @@ class GroupCardTagDetailView(mixins.RetrieveModelMixin,
             return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
         except CardTag.DoesNotExist:
             return Response({"error": "Такого тега не существует"}, status=status.HTTP_404_NOT_FOUND)
+        
+
+class ColumnBoardCreateView(generics.CreateAPIView):
+    serializer_class = ColumnBoardSerializer
+
+    def create(self, request, *args, **kwargs):
+        group_uuid = self.kwargs['group_uuid']
+
+        try:
+            group = Group.objects.get(group_uuid=group_uuid)
+        except Group.DoesNotExist:
+            return Response({"error": "Группа не найдена."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        name = serializer.validated_data['name']
+        color = serializer.validated_data['color']
+
+        if ColumnBoard.objects.filter(name=name, color=color, group=group).exists():
+            raise ValidationError({"error": "Такая колонка уже существует в этой группе."})
+
+        self.perform_create(serializer, group)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def perform_create(self, serializer, group):
+        serializer.save(group=group)
+
+
+class ColumnBoardDetailView(mixins.RetrieveModelMixin,
+                           mixins.UpdateModelMixin,
+                           mixins.DestroyModelMixin,
+                           generics.GenericAPIView):
+    queryset = ColumnBoard.objects.all()
+    serializer_class = ColumnBoardSerializer
+    lookup_field = 'id'  # Используем 'id' вместо 'code', так как в модели ColumnBoard нет поля 'code'
+
+    def get(self, request, *args, **kwargs):
+        group_uuid = self.kwargs['group_uuid']
+        column_id = self.kwargs['id']  # Используем 'id' вместо 'code'
+        try:
+            group = Group.objects.get(group_uuid=group_uuid)
+            column = ColumnBoard.objects.get(id=column_id, group=group)
+            serialized_column = ColumnBoardSerializer(column)
+            return Response(serialized_column.data)
+        
+        except ColumnBoard.DoesNotExist:
+            return Response({"error": "Такой колонки не существует"}, status=status.HTTP_404_NOT_FOUND)
+        except Group.DoesNotExist:
+            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
+
+    def put(self, request, *args, **kwargs):
+        group_uuid = self.kwargs['group_uuid']
+        column_id = self.kwargs['id']  # Используем 'id' вместо 'code'
+        try:
+            group = Group.objects.get(group_uuid=group_uuid)
+            column = ColumnBoard.objects.get(id=column_id, group=group)
+            serializer = self.get_serializer(column, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
+        
+        except ColumnBoard.DoesNotExist:
+            return Response({"error": "Такой колонки не существует"}, status=status.HTTP_404_NOT_FOUND)
+        except Group.DoesNotExist:
+            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
+
+    def delete(self, request, *args, **kwargs):
+        group_uuid = self.kwargs['group_uuid']
+        column_id = self.kwargs['id']  # Используем 'id' вместо 'code'
+        try:
+            group = Group.objects.get(group_uuid=group_uuid)
+            column = ColumnBoard.objects.get(id=column_id, group=group)
+            column.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        
+        except ColumnBoard.DoesNotExist:
+            return Response({"error": "Такой колонки не существует"}, status=status.HTTP_404_NOT_FOUND)
+        except Group.DoesNotExist:
+            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
