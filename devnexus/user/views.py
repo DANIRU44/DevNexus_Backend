@@ -14,7 +14,43 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = UserSerializer
     permission_classes = [permissions.AllowAny]
 
+class CurrentUserProfileView(generics.RetrieveAPIView, mixins.UpdateModelMixin):
+    serializer_class = UserProfileSerializer
+    permission_classes = [IsOwnerOrReadOnly]
 
+
+    def get_object(self):
+        return self.request.user
+
+    def get(self, request, *args, **kwargs):
+        try:
+            user = self.get_object()
+            user_data = self.get_serializer(user).data
+
+            groups = user.group_memberships.all()
+            groups_data = GroupSerializerForProfile(groups, many=True).data
+
+            for group, group_data in zip(groups, groups_data):
+                cards = Card.objects.filter(group=group, assignee=user)
+                group_data["cards"] = CardSerializer(cards, many=True).data
+
+            response_data = {
+                'user': user_data,
+                'groups': groups_data,
+            }
+
+            return Response(response_data)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
+
+    def put(self, request, *args, **kwargs):
+        try:
+            return self.update(request, *args, **kwargs)
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
+        
+        
 class UserProfileView(mixins.RetrieveModelMixin,
                             mixins.UpdateModelMixin,
                             generics.GenericAPIView):
