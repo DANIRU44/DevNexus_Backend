@@ -7,7 +7,29 @@ from .models import Group, Card, GroupTag, UserTag, CardTag, ColumnBoard
 from user.models import User
 from .serializers import *
 from .permissions import IsGroupMember
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
+error_schema = openapi.Schema(
+    type=openapi.TYPE_OBJECT,
+    properties={
+        'error': openapi.Schema(type=openapi.TYPE_STRING)
+    }
+)
+
+forbidden_schema = openapi.Schema(
+    type=openapi.TYPE_OBJECT,
+    properties={
+        'detail': openapi.Schema(type=openapi.TYPE_STRING)
+    }
+)
+
+not_found_schema = openapi.Schema(
+    type=openapi.TYPE_OBJECT,
+    properties={
+        'detail': openapi.Schema(type=openapi.TYPE_STRING)
+    }
+)
 
 class GroupCreateView(generics.CreateAPIView):
     queryset = Group.objects.all()
@@ -29,6 +51,49 @@ class GroupDetailView(mixins.RetrieveModelMixin,
     # permission_classes = [IsGroupMember] отключу на время тестирования
     lookup_field = 'group_uuid'
 
+    @swagger_auto_schema(
+        operation_summary="Получение информации о группе",
+        responses={
+            200: openapi.Response(
+                description="Успешный ответ",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                        'group_uuid': openapi.Schema(type=openapi.TYPE_STRING),
+                        'name': openapi.Schema(type=openapi.TYPE_STRING),
+                        'icon': openapi.Schema(type=openapi.TYPE_STRING),
+                        'description': openapi.Schema(type=openapi.TYPE_STRING),
+                        'members': openapi.Schema(
+                            type=openapi.TYPE_ARRAY,
+                            items=openapi.Schema(
+                                type=openapi.TYPE_OBJECT,
+                                properties={
+                                    'username': openapi.Schema(type=openapi.TYPE_STRING),
+                                    'email': openapi.Schema(type=openapi.TYPE_STRING)
+                                }
+                            )
+                        ),
+                        'board': openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            additional_properties=openapi.Schema(
+                                type=openapi.TYPE_ARRAY,
+                                items=openapi.Schema(
+                                    type=openapi.TYPE_OBJECT,
+                                    properties={
+                                        'title': openapi.Schema(type=openapi.TYPE_STRING),
+                                        'description': openapi.Schema(type=openapi.TYPE_STRING),
+                                        'column': openapi.Schema(type=openapi.TYPE_INTEGER)
+                                    }
+                                )
+                            )
+                        )
+                    }
+                )
+            ),
+            404: openapi.Response("Группа не найдена")
+        }
+    )
     def get(self, request, *args, **kwargs):
 
         group = self.get_object()
@@ -49,6 +114,8 @@ class GroupDetailView(mixins.RetrieveModelMixin,
 
         return Response(response_data)
 
+    @swagger_auto_schema(
+        operation_summary="Обновление информации о группе")
     def put(self, request, *args, **kwargs):
         return self.update(request, *args, **kwargs)
 
@@ -76,6 +143,9 @@ class AddMemberToGroupView(mixins.UpdateModelMixin,
     #     group_uuid = self.kwargs.get('group_uuid')
     #     return get_object_or_404(Group, group_uuid=group_uuid)
     
+    @swagger_auto_schema(
+        operation_summary="Добавление участника в группу",
+        operation_description="Добавляет пользователя в группу по его username")
     def put(self, request, *args, **kwargs):
             group = self.get_object()
             serializer = self.get_serializer(data=request.data)
@@ -98,6 +168,9 @@ class CardCreateView(generics.CreateAPIView):
     serializer_class = CardSerializer
     lookup_field = 'code'
 
+    @swagger_auto_schema(
+        operation_summary="Создание карточки",
+        operation_description="Создает новую карточку в указанной группе")
     def create(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
 
@@ -146,6 +219,8 @@ class CardDetailView(mixins.RetrieveModelMixin,
     lookup_field = 'code'
     queryset = Card.objects.all()
 
+    @swagger_auto_schema(
+        operation_summary="Получение информации о карточке")
     def get(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
         code = self.kwargs['code']
@@ -161,6 +236,8 @@ class CardDetailView(mixins.RetrieveModelMixin,
         except Group.DoesNotExist:
             return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
 
+    @swagger_auto_schema(
+        operation_summary="Обновление карточки")
     def put(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
         code = self.kwargs['code']
@@ -174,6 +251,8 @@ class CardDetailView(mixins.RetrieveModelMixin,
         except Card.DoesNotExist:
             return Response({"error": "Такой карточки не существует"}, status=status.HTTP_404_NOT_FOUND)
 
+    @swagger_auto_schema(
+        operation_summary="Удаление карточки")
     def delete(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
         code = self.kwargs['code']
@@ -192,6 +271,9 @@ class CardDetailView(mixins.RetrieveModelMixin,
 class GroupTagCreateView(generics.CreateAPIView):
     serializer_class = GroupTagCreateSerializer
 
+    @swagger_auto_schema(
+        operation_summary="Создание тега для пользователей",
+        operation_description="Создает новый тег для пользователей для указанной группы")
     def create(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
 
@@ -245,6 +327,8 @@ class GroupTagDetailView(mixins.RetrieveModelMixin,
     serializer_class = GroupTagSerializer
     lookup_field = 'code' 
 
+    @swagger_auto_schema(
+        operation_summary="Получение информации о теге для пользователей")
     def get(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
         code = self.kwargs['code']
@@ -260,6 +344,8 @@ class GroupTagDetailView(mixins.RetrieveModelMixin,
         except Group.DoesNotExist:
             return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
 
+    @swagger_auto_schema(
+        operation_summary="Обновление тега для пользователей")
     def put(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
         code = self.kwargs['code']
@@ -273,6 +359,8 @@ class GroupTagDetailView(mixins.RetrieveModelMixin,
         except GroupTag.DoesNotExist:
             return Response({"error": "Такого тега не существует"}, status=status.HTTP_404_NOT_FOUND)
 
+    @swagger_auto_schema(
+        operation_summary="Удаление тега для пользователей")
     def delete(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
         code = self.kwargs['code']
@@ -292,6 +380,9 @@ class UserTagCreateView(generics.CreateAPIView):
     queryset = UserTag.objects.all()
     serializer_class = UserTagSerializer
 
+    @swagger_auto_schema(
+        operation_summary="Создание связи пользователя с тегом",
+        operation_description="Создает связь между пользователем и тегом")
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -310,6 +401,9 @@ class UserTagDeleteView(generics.DestroyAPIView):
     queryset = UserTag.objects.all()
     serializer_class = UserTagSerializer
 
+    @swagger_auto_schema(
+        operation_summary="Удаление связи пользователя с тегом",
+        operation_description="Удаляет связь между пользователем и тегом")
     def delete(self, request, username, tag, *args, **kwargs):
         # Пытаемся найти объект UserTag по username и tag
         try:
@@ -323,6 +417,9 @@ class UserTagDeleteView(generics.DestroyAPIView):
 class GroupCardTagCreateView(generics.CreateAPIView):
     serializer_class = GroupCardTagCreateSerializer
 
+    @swagger_auto_schema(
+        operation_summary="Создание тега для карточек группы",
+        operation_description="Создает новый тег для карточек в указанной группе")
     def create(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
 
@@ -357,6 +454,9 @@ class GroupCardTagListView(generics.GenericAPIView):
         except Group.DoesNotExist:
             return None
 
+    @swagger_auto_schema(
+        operation_summary="Получение списка тегов карточек группы",
+        operation_description="Возвращает все теги карточек для указанной группы")
     def get(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
         tags = self.get_queryset(group_uuid)
@@ -376,6 +476,8 @@ class GroupCardTagDetailView(mixins.RetrieveModelMixin,
     serializer_class = GroupCardTagSerializer
     lookup_field = 'code' 
 
+    @swagger_auto_schema(
+        operation_summary="Получение информации о теге карточек")
     def get(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
         code = self.kwargs['code']
@@ -391,6 +493,8 @@ class GroupCardTagDetailView(mixins.RetrieveModelMixin,
         except Group.DoesNotExist:
             return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
 
+    @swagger_auto_schema(
+        operation_summary="Обновление тега карточек")
     def put(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
         code = self.kwargs['code']
@@ -404,6 +508,8 @@ class GroupCardTagDetailView(mixins.RetrieveModelMixin,
         except CardTag.DoesNotExist:
             return Response({"error": "Такого тега не существует"}, status=status.HTTP_404_NOT_FOUND)
 
+    @swagger_auto_schema(
+        operation_summary="Удаление тега карточек")
     def delete(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
         code = self.kwargs['code']
@@ -422,6 +528,8 @@ class GroupCardTagDetailView(mixins.RetrieveModelMixin,
 class ColumnBoardCreateView(generics.CreateAPIView):
     serializer_class = ColumnBoardSerializer
 
+    @swagger_auto_schema(
+        operation_summary="Создание колонки")
     def create(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
 
@@ -454,6 +562,8 @@ class ColumnBoardDetailView(mixins.RetrieveModelMixin,
     serializer_class = ColumnBoardSerializer
     lookup_field = 'id'  # Используем 'id' вместо 'code', так как в модели ColumnBoard нет поля 'code'
 
+    @swagger_auto_schema(
+        operation_summary="Получение информации о колонке")
     def get(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
         column_id = self.kwargs['id']  # Используем 'id' вместо 'code'
@@ -468,6 +578,8 @@ class ColumnBoardDetailView(mixins.RetrieveModelMixin,
         except Group.DoesNotExist:
             return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
 
+    @swagger_auto_schema(
+        operation_summary="Обновление колонки")
     def put(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
         column_id = self.kwargs['id']  # Используем 'id' вместо 'code'
@@ -484,6 +596,7 @@ class ColumnBoardDetailView(mixins.RetrieveModelMixin,
         except Group.DoesNotExist:
             return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
 
+    @swagger_auto_schema(operation_summary="Удаление колонки")
     def delete(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
         column_id = self.kwargs['id']  # Используем 'id' вместо 'code'
