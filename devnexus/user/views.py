@@ -83,33 +83,30 @@ class CurrentUserProfileView(generics.RetrieveAPIView, mixins.UpdateModelMixin):
         }
     )
     def get(self, request, *args, **kwargs):
-        group = self.get_object()
-        serializer = self.get_serializer(group)
+        try:
+            user = self.get_object()
+            user_data = self.get_serializer(user).data
+            
+            groups = user.group_memberships.all()
+            groups_data = GroupSerializerForProfile(groups, many=True).data
+            
+            # cards = Card.objects.filter(assignee=user)
+            # cards_data = CardSerializer(cards, many=True).data
 
-        columns = ColumnBoard.objects.filter(group=group)
-        # Получаем карточки с предзагрузкой тегов
-        cards = Card.objects.filter(group=group).prefetch_related('tags')
-        cards_serializer = CardSerializer(cards, many=True)
-
-        # Создаем словарь с информацией о колонках (имя -> цвет)
-        columns_info = {col.name: {'color': col.color, 'code': col.id} for col in columns}
-
-        # Группируем карточки по названию колонки (как было)
-        grouped_cards = {}
-        for column_name, column_data in columns_info.items():
-            column_cards = [card for card in cards_serializer.data if card['column'] == column_name]
-            grouped_cards[column_name] = {
-                'name': column_name,
-                'color': column_data['color'],
-                'code': column_data['code'],
-                'tasks': column_cards
+            for group, group_data in zip(groups, groups_data):
+                # Фильтруем карточки пользователя в текущей группе
+                cards = Card.objects.filter(group=group, assignee=user)
+                # Сериализуем карточки
+                group_data["cards"] = CardSerializer(cards, many=True).data
+            
+            response_data = {
+                'user': user_data,
+                'groups': groups_data,
             }
 
-        response_data = serializer.data
-        response_data['board'] = {
-            'columns': list(grouped_cards.values())
-        }
-
+        except:
+            return Response({"error": "Что то пошло не так"})
+        
         return Response(response_data)
         
     @swagger_auto_schema(
