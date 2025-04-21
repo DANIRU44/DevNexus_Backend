@@ -95,22 +95,32 @@ class GroupDetailView(mixins.RetrieveModelMixin,
         }
     )
     def get(self, request, *args, **kwargs):
-
         group = self.get_object()
         serializer = self.get_serializer(group)
 
         columns = ColumnBoard.objects.filter(group=group)
-        cards = Card.objects.filter(group=group)
-
+        # Получаем карточки с предзагрузкой тегов
+        cards = Card.objects.filter(group=group).prefetch_related('tags')
         cards_serializer = CardSerializer(cards, many=True)
 
+        # Создаем словарь с информацией о колонках (имя -> цвет)
+        columns_info = {col.name: {'color': col.color, 'code': col.id} for col in columns}
+
+        # Группируем карточки по названию колонки (как было)
         grouped_cards = {}
-        for column in columns:
-            column_cards = [card for card in cards_serializer.data if card['column'] == column.id]
-            grouped_cards[column.name] = column_cards
+        for column_name, column_data in columns_info.items():
+            column_cards = [card for card in cards_serializer.data if card['column'] == column_name]
+            grouped_cards[column_name] = {
+                'name': column_name,
+                'color': column_data['color'],
+                'code': column_data['code'],
+                'tasks': column_cards
+            }
 
         response_data = serializer.data
-        response_data['board'] = grouped_cards
+        response_data['board'] = {
+            'columns': list(grouped_cards.values())
+        }
 
         return Response(response_data)
 
@@ -194,21 +204,35 @@ class CardListView(generics.GenericAPIView):
     lookup_field = 'code'
 
     def get(self, request, *args, **kwargs):
-
         group_uuid = self.kwargs['group_uuid']
         group = Group.objects.get(group_uuid=group_uuid)
 
+        # Получаем колонки с предзагрузкой
         columns = ColumnBoard.objects.filter(group=group)
-
-        cards = Card.objects.filter(group=group)
+        # Получаем карточки с предзагрузкой тегов и колонок
+        cards = Card.objects.filter(group=group).select_related('column').prefetch_related('tags')
         cards_serializer = CardSerializer(cards, many=True)
 
-        grouped_cards = {}
-        for column in columns:
-            column_cards = [card for card in cards_serializer.data if card['column'] == column.id]
-            grouped_cards[column.name] = column_cards
+        # Создаем словарь для хранения информации о колонках
+        columns_info = {col.id: {'name': col.name, 'color': col.color, 'code': col.id} for col in columns}
 
-        return Response(grouped_cards)
+        # Группируем карточки по названию колонки с дополнительными полями
+        grouped_cards = {}
+        for column_id, column_data in columns_info.items():
+            column_cards = [card for card in cards_serializer.data if card['column'] == column_data['name']]
+            grouped_cards[column_data['name']] = {
+                'name': column_data['name'],
+                'color': column_data['color'],
+                'code': column_data['code'],
+                'tasks': column_cards
+            }
+
+        # Преобразуем в список колонок для ответа
+        response_data = {
+            'columns': list(grouped_cards.values())
+        }
+
+        return Response(response_data)
 
 
 class CardDetailView(mixins.RetrieveModelMixin,
