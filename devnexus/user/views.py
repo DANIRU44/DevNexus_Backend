@@ -83,26 +83,34 @@ class CurrentUserProfileView(generics.RetrieveAPIView, mixins.UpdateModelMixin):
         }
     )
     def get(self, request, *args, **kwargs):
-        try:
-            user = self.get_object()
-            user_data = self.get_serializer(user).data
+        group = self.get_object()
+        serializer = self.get_serializer(group)
 
-            groups = user.group_memberships.all()
-            groups_data = GroupSerializerForProfile(groups, many=True).data
+        columns = ColumnBoard.objects.filter(group=group)
+        # Получаем карточки с предзагрузкой тегов
+        cards = Card.objects.filter(group=group).prefetch_related('tags')
+        cards_serializer = CardSerializer(cards, many=True)
 
-            for group, group_data in zip(groups, groups_data):
-                cards = Card.objects.filter(group=group, assignee=user)
-                group_data["cards"] = CardSerializer(cards, many=True).data
+        # Создаем словарь с информацией о колонках (имя -> цвет)
+        columns_info = {col.name: {'color': col.color, 'code': col.id} for col in columns}
 
-            response_data = {
-                'user': user_data,
-                'groups': groups_data,
+        # Группируем карточки по названию колонки (как было)
+        grouped_cards = {}
+        for column_name, column_data in columns_info.items():
+            column_cards = [card for card in cards_serializer.data if card['column'] == column_name]
+            grouped_cards[column_name] = {
+                'name': column_name,
+                'color': column_data['color'],
+                'code': column_data['code'],
+                'tasks': column_cards
             }
 
-            return Response(response_data)
+        response_data = serializer.data
+        response_data['board'] = {
+            'columns': list(grouped_cards.values())
+        }
 
-        except Exception as e:
-            return Response({"error": str(e)}, status=400)
+        return Response(response_data)
         
     @swagger_auto_schema(
         operation_summary="Обновление профиля текущего пользователя",

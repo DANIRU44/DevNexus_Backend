@@ -4,12 +4,22 @@ from user.serializers import UserProfileSerializer
 from .models import Group, Card, GroupTag, UserTag, CardTag, ColumnBoard
 
 
+class GroupCardTagSerializer(serializers.ModelSerializer):
+   
+    class Meta:
+        model = CardTag
+        fields = ['code', 'name', 'color']
+        read_only_fields = ['id', 'code']
+
+
 class CardSerializer(serializers.ModelSerializer):
     assignee = serializers.CharField()
+    column = serializers.CharField(source='column.name')  # Оставляем имя колонки для группировки
+    tags = GroupCardTagSerializer(many=True)
 
     class Meta:
         model = Card
-        fields = ['title', 'description', 'column', 'assignee', 'start_date', 'end_date']
+        fields = ['title', 'description', 'column', 'assignee', 'start_date', 'end_date', 'code', 'id', 'tags']
 
 # боже оно работает!
     def create(self, validated_data):
@@ -77,17 +87,8 @@ class GroupCardTagCreateSerializer(serializers.ModelSerializer):
         fields = ['name', 'color']
 
 
-class GroupCardTagSerializer(serializers.ModelSerializer):
-   
-    class Meta:
-        model = CardTag
-        fields = ['code', 'name', 'color']
-        read_only_fields = ['id', 'code']
-
-
 class ColumnBoardSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = ColumnBoard
-        fields = ['name', 'color']
+        fields = ['id', 'name', 'color']
         read_only_fields = ['id']
