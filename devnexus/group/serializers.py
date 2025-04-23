@@ -13,26 +13,50 @@ class GroupCardTagSerializer(serializers.ModelSerializer):
 
 
 class CardSerializer(serializers.ModelSerializer):
-    assignee = serializers.CharField()
-    column = serializers.CharField(source='column.name')  # Оставляем имя колонки для группировки
-    tags = GroupCardTagSerializer(many=True)
+    assignee = serializers.CharField(write_only=True)
+    column = serializers.SlugRelatedField(
+        slug_field='name',
+        queryset=ColumnBoard.objects.all()
+    )
+    tags = GroupCardTagSerializer(many=True, required=False)
 
     class Meta:
         model = Card
-        fields = ['title', 'description', 'column', 'assignee', 'start_date', 'end_date', 'code', 'id', 'tags']
+        fields = ['code', 'title', 'description', 'column', 'assignee', 'start_date', 'end_date', 'tags']
 
-# боже оно работает!
     def create(self, validated_data):
+        # Извлекаем данные для тегов
+        tags_data = validated_data.pop('tags', [])
+        column = validated_data.pop('column')
         assignee_username = validated_data.pop('assignee')
+        group = self.context['group']
 
+        # Получаем пользователя
         try:
             user = User.objects.get(username=assignee_username)
         except User.DoesNotExist:
-            raise serializers.ValidationError("Пользователь с таким именем не найден.")
+            raise serializers.ValidationError({"assignee": "Пользователь не найден"})
 
-        card = Card.objects.create(assignee=user, **validated_data)
+        # Создаем карточку
+        card = Card.objects.create(
+            column=column,
+            assignee=user,
+            group=group,
+            **validated_data
+        )
+
+        # Добавляем теги через .set()
+        tags = []
+        for tag_data in tags_data:
+            tag, _ = CardTag.objects.get_or_create(
+                group=group,  # Привязываем тег к группе
+                **tag_data
+            )
+            tags.append(tag)
+        
+        card.tags.set(tags)  # Корректное присвоение ManyToMany
+
         return card
-
 
 class GroupSerializer(serializers.ModelSerializer):
     members = UserProfileSerializer(many=True, read_only=True)
