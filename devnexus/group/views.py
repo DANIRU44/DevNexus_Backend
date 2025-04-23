@@ -1,3 +1,4 @@
+from django.http import Http404
 from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework import status
@@ -176,63 +177,36 @@ class AddMemberToGroupView(mixins.UpdateModelMixin,
 
 class CardCreateView(generics.CreateAPIView):
     serializer_class = CardSerializer
-    lookup_field = 'code'
+
+    def get_serializer_context(self):
+        # Передаем группу в контекст сериализатора
+        context = super().get_serializer_context()
+        group_uuid = self.kwargs['group_uuid']
+        try:
+            context['group'] = Group.objects.get(group_uuid=group_uuid)
+        except Group.DoesNotExist:
+            raise Http404("Группа не найдена")
+        return context
 
     @swagger_auto_schema(
         operation_summary="Создание карточки",
-        operation_description="Создает новую карточку в указанной группе")
+        operation_description="Создает новую карточку в указанной группе"
+    )
     def create(self, request, *args, **kwargs):
-        group_uuid = self.kwargs['group_uuid']
+        return super().create(request, *args, **kwargs)
 
-        try:
-            group = Group.objects.get(group_uuid=group_uuid)
-        except Group.DoesNotExist:
-            return Response({"error": "Группа не найдена."}, status=status.HTTP_404_NOT_FOUND)
-
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        self.perform_create(serializer, group)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    def perform_create(self, serializer, group):
-        serializer.save(group=group)
-
-
+#тут проблемы
 class CardListView(generics.GenericAPIView):
-    serializer_class = CardSerializer
-    lookup_field = 'code'
-
-    def get(self, request, *args, **kwargs):
+    def get_queryset(self):
         group_uuid = self.kwargs['group_uuid']
-        group = Group.objects.get(group_uuid=group_uuid)
+        return Card.objects.filter(group__group_uuid=group_uuid)\
+            .select_related('column', 'group')\
+            .prefetch_related('tags')
 
-        # Получаем колонки с предзагрузкой
-        columns = ColumnBoard.objects.filter(group=group)
-        # Получаем карточки с предзагрузкой тегов и колонок
-        cards = Card.objects.filter(group=group).select_related('column').prefetch_related('tags')
-        cards_serializer = CardSerializer(cards, many=True)
-
-        # Создаем словарь для хранения информации о колонках
-        columns_info = {col.id: {'name': col.name, 'color': col.color, 'code': col.id} for col in columns}
-
-        # Группируем карточки по названию колонки с дополнительными полями
-        grouped_cards = {}
-        for column_id, column_data in columns_info.items():
-            column_cards = [card for card in cards_serializer.data if card['column'] == column_data['name']]
-            grouped_cards[column_data['name']] = {
-                'name': column_data['name'],
-                'color': column_data['color'],
-                'code': column_data['code'],
-                'tasks': column_cards
-            }
-
-        # Преобразуем в список колонок для ответа
-        response_data = {
-            'columns': list(grouped_cards.values())
-        }
-
-        return Response(response_data)
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({'cards': serializer.data})
 
 
 class CardDetailView(mixins.RetrieveModelMixin,
