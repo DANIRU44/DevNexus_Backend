@@ -104,8 +104,8 @@ class CurrentUserProfileView(generics.RetrieveAPIView, mixins.UpdateModelMixin):
                 'groups': groups_data,
             }
 
-        except:
-            return Response({"error": "Что то пошло не так"})
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
         
         return Response(response_data)
         
@@ -239,8 +239,8 @@ class UserProfileView(mixins.RetrieveModelMixin,
                 'groups': groups_data,
             }
 
-        except:
-            return Response({"error": "Что то пошло не так"})
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
         
         return Response(response_data)
 
