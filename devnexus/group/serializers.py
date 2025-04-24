@@ -45,18 +45,40 @@ class CardSerializer(serializers.ModelSerializer):
             **validated_data
         )
 
-        # Добавляем теги через .set()
         tags = []
         for tag_data in tags_data:
             tag, _ = CardTag.objects.get_or_create(
-                group=group,  # Привязываем тег к группе
+                group=group,
                 **tag_data
             )
             tags.append(tag)
         
-        card.tags.set(tags)  # Корректное присвоение ManyToMany
+        card.tags.set(tags)
 
         return card
+    
+    def update(self, instance, validated_data):
+
+        assignee_username = validated_data.pop('assignee', None)
+        if assignee_username:
+            try:
+                user = User.objects.get(username=assignee_username)
+                instance.assignee = user
+            except User.DoesNotExist:
+                raise serializers.ValidationError({"assignee": "Пользователь не найден"})
+
+        tags_data = validated_data.pop('tags', [])
+        tags = []
+        for tag_data in tags_data:
+            tag, _ = CardTag.objects.get_or_create(
+                group=instance.group,
+                **tag_data
+            )
+            tags.append(tag)
+        instance.tags.set(tags)
+
+        return super().update(instance, validated_data)
+
 
 class GroupSerializer(serializers.ModelSerializer):
     members = UserProfileSerializer(many=True, read_only=True)
