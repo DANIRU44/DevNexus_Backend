@@ -13,7 +13,7 @@ class GroupCardTagSerializer(serializers.ModelSerializer):
 
 
 class CardSerializer(serializers.ModelSerializer):
-    assignee = serializers.CharField(write_only=True)
+    assignee = serializers.CharField()
     column = serializers.SlugRelatedField(
         slug_field='name',
         queryset=ColumnBoard.objects.all()
