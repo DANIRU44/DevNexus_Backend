@@ -23,7 +23,7 @@ class Group(models.Model):
 
 # решил разделить одну модель с тегами на две, так-как это позволит присваивать существующие теги, а не прописывать их каждый раз 
 class GroupTag(models.Model):
-    code = models.CharField(max_length=6, unique=True, editable=False)
+    code = models.CharField(max_length=6, editable=False)
     name = models.CharField(max_length=50)
     color = models.CharField(max_length=20)
     group = models.ForeignKey(Group, to_field='group_uuid', on_delete=models.CASCADE, related_name='available_tags')
@@ -50,7 +50,7 @@ class GroupTag(models.Model):
 
 class UserTag(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    tag = models.ForeignKey(GroupTag, to_field='code', on_delete=models.CASCADE)
+    tag = models.ForeignKey(GroupTag, on_delete=models.CASCADE)
 
     class Meta:
         unique_together = ('user', 'tag')
@@ -60,7 +60,7 @@ class UserTag(models.Model):
     
 
 class CardTag(models.Model):
-    code = models.CharField(max_length=6, unique=True, editable=False)
+    code = models.CharField(max_length=6, editable=False)
     name = models.CharField(max_length=50)
     color = models.CharField(max_length=20)
     group = models.ForeignKey(Group, to_field='group_uuid', on_delete=models.CASCADE, related_name='available_card_tags')
