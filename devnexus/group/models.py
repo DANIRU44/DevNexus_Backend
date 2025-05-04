@@ -102,7 +102,7 @@ class ColumnBoard(models.Model):
 
 class Card(models.Model):
     """Карточки с заданиями в группах"""
-    code = models.CharField(max_length=6, unique=True, editable=False)  # Уникальный шестизначный код карточки
+    code = models.CharField(max_length=6, editable=False)  # Уникальный шестизначный код карточки
     title = models.CharField(max_length=100)
     description = models.TextField(blank=True, max_length=700)
     assignee = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
