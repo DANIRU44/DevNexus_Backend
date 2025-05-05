@@ -99,29 +99,29 @@ class GroupDetailView(mixins.RetrieveModelMixin,
         group = self.get_object()
         serializer = self.get_serializer(group)
 
-        columns = ColumnBoard.objects.filter(group=group)
-        # Получаем карточки с предзагрузкой тегов
+        columns_queryset = ColumnBoard.objects.filter(group=group)
+        columns_serializer = ColumnBoardSerializer(columns_queryset, many=True)
+        columns_data = columns_serializer.data
+
         cards = Card.objects.filter(group=group).prefetch_related('tags')
         cards_serializer = CardSerializer(cards, many=True)
+        cards_data = cards_serializer.data
 
-        # Создаем словарь с информацией о колонках (имя -> цвет)
-        columns_info = {col.name: {'color': col.color, 'code': col.id} for col in columns}
-
-        # Группируем карточки по названию колонки (как было)
-        grouped_cards = {}
-        for column_name, column_data in columns_info.items():
-            column_cards = [card for card in cards_serializer.data if card['column'] == column_name]
-            grouped_cards[column_name] = {
-                'name': column_name,
-                'color': column_data['color'],
-                'code': column_data['code'],
+        grouped_columns = []
+        for column in columns_data: 
+            column_cards = [
+                card for card in cards_data 
+                if card['column'] == column['name'] 
+            ]
+            grouped_columns.append({
+                'name': column['name'],
+                'color': column['color'],
+                'code': column['id'],
                 'tasks': column_cards
-            }
+            })
 
         response_data = serializer.data
-        response_data['board'] = {
-            'columns': list(grouped_cards.values())
-        }
+        response_data['board'] = {'columns': grouped_columns}
 
         return Response(response_data)
 
@@ -215,7 +215,10 @@ class CardDetailView(mixins.RetrieveModelMixin,
                                    generics.GenericAPIView):
     serializer_class = CardSerializer
     lookup_field = 'code'
-    queryset = Card.objects.all()
+
+    def get_queryset(self):
+        group_uuid = self.kwargs['group_uuid']
+        return Card.objects.filter(group__group_uuid=group_uuid)
 
     @swagger_auto_schema(
         operation_summary="Получение информации о карточке")
@@ -242,6 +245,7 @@ class CardDetailView(mixins.RetrieveModelMixin,
         try:
             group = Group.objects.get(group_uuid=group_uuid)
             card = Card.objects.get(code=code, group=group)
+            print(CardSerializer(card).data)
             return self.update(request, *args, **kwargs)
         
         except Group.DoesNotExist:
