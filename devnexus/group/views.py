@@ -149,10 +149,6 @@ class AddMemberToGroupView(mixins.UpdateModelMixin,
     # permission_classes = [IsGroupMember] отключу на время тестирования
     lookup_field = 'group_uuid'
     
-    # def get_object(self):
-    #     # Переопределяем метод для получения группы по group_uuid
-    #     group_uuid = self.kwargs.get('group_uuid')
-    #     return get_object_or_404(Group, group_uuid=group_uuid)
     
     @swagger_auto_schema(
         operation_summary="Добавление участника в группу",
@@ -173,6 +169,8 @@ class AddMemberToGroupView(mixins.UpdateModelMixin,
 
             group.members.add(user)
             group.save()
+
+            return Response({"success": "Пользователь успешно добавлен в группу."}, status=status.HTTP_200_OK)
 
 
 class CardCreateView(generics.CreateAPIView):
