@@ -16,13 +16,19 @@ class CardSerializer(serializers.ModelSerializer):
     assignee = serializers.CharField()
     column = serializers.SlugRelatedField(
         slug_field='name',
-        queryset=ColumnBoard.objects.all()
+        queryset=ColumnBoard.objects.none()  # ну и начинается жонглирование костылями
     )
     tags = GroupCardTagSerializer(many=True, required=False)
 
     class Meta:
         model = Card
         fields = ['code', 'title', 'description', 'column', 'assignee', 'start_date', 'end_date', 'tags']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        group = self.context.get('group')
+        if group:
+            self.fields['column'].queryset = ColumnBoard.objects.filter(group=group)
 
     def create(self, validated_data):
         # Извлекаем данные для тегов
