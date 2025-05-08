@@ -211,12 +211,23 @@ class CardDetailView(mixins.RetrieveModelMixin,
                                    mixins.UpdateModelMixin,
                                    mixins.DestroyModelMixin,
                                    generics.GenericAPIView):
+    
     serializer_class = CardSerializer
     lookup_field = 'code'
-
+    
     def get_queryset(self):
         group_uuid = self.kwargs['group_uuid']
         return Card.objects.filter(group__group_uuid=group_uuid)
+
+    # Добавьте этот метод
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        group_uuid = self.kwargs.get('group_uuid')
+        try:
+            context['group'] = Group.objects.get(group_uuid=group_uuid)
+        except Group.DoesNotExist:
+            pass  # Ошибка обрабатывается в других местах
+        return context
 
     @swagger_auto_schema(
         operation_summary="Получение информации о карточке")
