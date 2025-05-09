@@ -31,10 +31,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'old_password', 'new_password']
+        fields = ['username', 'email', 'old_password', 'new_password', 'description']
         extra_kwargs = {
             'username': {'required': False},
             'email': {'required': False},
+            'description': {'required': False},
         }
 
     def validate(self, data):
