@@ -10,6 +10,7 @@ from .serializers import *
 from .permissions import IsGroupMember
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from collections import defaultdict
 
 error_schema = openapi.Schema(
     type=openapi.TYPE_OBJECT,
@@ -98,7 +99,29 @@ class GroupDetailView(mixins.RetrieveModelMixin,
     def get(self, request, *args, **kwargs):
         group = self.get_object()
         serializer = self.get_serializer(group)
+        
+        # Исправленный запрос для тегов
+        user_tags = UserTag.objects.filter(
+            tag__group_id=group.group_uuid
+        ).select_related('user', 'tag')
+        
+        # Группируем по ID пользователя (используем user.id вместо username)
+        user_tags_mapping = defaultdict(list)
+        for ut in user_tags:
+            user_tags_mapping[ut.user.username].append({  # Используем ID пользователя как ключ
+                'code': ut.tag.code,
+                'name': ut.tag.name,
+                'color': ut.tag.color
+            })
 
+        # print(user_tags_mapping)
+        response_data = serializer.data
+        
+        # Исправляем обращение к данным пользователя
+        for member in response_data['members']:
+            member['tags'] = user_tags_mapping.get(member['username'], [])
+        
+        # Остальная логика с колонками и карточками
         columns_queryset = ColumnBoard.objects.filter(group=group)
         columns_serializer = ColumnBoardSerializer(columns_queryset, many=True)
         columns_data = columns_serializer.data
@@ -120,7 +143,6 @@ class GroupDetailView(mixins.RetrieveModelMixin,
                 'tasks': column_cards
             })
 
-        response_data = serializer.data
         response_data['board'] = {'columns': grouped_columns}
 
         return Response(response_data)
@@ -398,10 +420,10 @@ class UserTagCreateView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        username=serializer.validated_data['username']
+        user=serializer.validated_data['user']
         tag=serializer.validated_data['tag']
 
-        if UserTag.objects.filter(username=username, tag=tag).exists():
+        if UserTag.objects.filter(user=user, tag=tag).exists():
             raise ValidationError("Связь между пользователем и тегом уже существует.")
 
         self.perform_create(serializer)
