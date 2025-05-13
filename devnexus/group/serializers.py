@@ -128,9 +128,48 @@ class GroupTagSerializer(serializers.ModelSerializer):
 
 
 class UserTagSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(write_only=True)
+    tag_code = serializers.CharField(write_only=True)
+
     class Meta:
         model = UserTag
-        fields = ['user', 'tag']
+        fields = ['username', 'tag_code']
+
+    def validate(self, attrs):
+        group = self.context.get('group')
+        if not group:
+            raise serializers.ValidationError("Группа не указана.")
+
+        username = attrs.get('username')
+        tag_code = attrs.get('tag_code')
+
+        try:
+            user = User.objects.get(username=username, group=group)
+        except User.DoesNotExist:
+            raise serializers.ValidationError(
+                {"username": "Пользователь не найден в этой группе."}
+            )
+
+        try:
+            tag = GroupTag.objects.get(code=tag_code, group=group)
+        except GroupTag.DoesNotExist:
+            raise serializers.ValidationError(
+                {"tag_code": "Тег с таким кодом не найден в группе."}
+            )
+
+        if UserTag.objects.filter(user=user, tag=tag).exists():
+            raise serializers.ValidationError(
+                "Связь между пользователем и тегом уже существует."
+            )
+
+        attrs['user'] = user
+        attrs['tag'] = tag
+        return attrs
+
+    def create(self, validated_data):
+        validated_data.pop('username', None)
+        validated_data.pop('tag_code', None)
+        return super().create(validated_data)
 
 
 class GroupCardTagCreateSerializer(serializers.ModelSerializer):

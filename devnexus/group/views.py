@@ -410,38 +410,70 @@ class GroupTagDetailView(mixins.RetrieveModelMixin,
         
 
 class UserTagCreateView(generics.CreateAPIView):
-    queryset = UserTag.objects.all()
     serializer_class = UserTagSerializer
 
     @swagger_auto_schema(
         operation_summary="Создание связи пользователя с тегом",
-        operation_description="Создает связь между пользователем и тегом")
+        operation_description="Создает связь между пользователем и тегом в указанной группе"
+    )
     def create(self, request, *args, **kwargs):
+        group_uuid = self.kwargs['group_uuid']
+        try:
+            group = Group.objects.get(group_uuid=group_uuid)
+        except Group.DoesNotExist:
+            return Response(
+                {"error": "Группа не найдена."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
         serializer = self.get_serializer(data=request.data)
+        serializer.context['group'] = group
         serializer.is_valid(raise_exception=True)
-
-        user=serializer.validated_data['user']
-        tag=serializer.validated_data['tag']
-
-        if UserTag.objects.filter(user=user, tag=tag).exists():
-            raise ValidationError("Связь между пользователем и тегом уже существует.")
-
+        
         self.perform_create(serializer)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        headers = self.get_success_headers(serializer.data)
+        return Response(
+            serializer.data,
+            status=status.HTTP_201_CREATED,
+            headers=headers
+        )
 
 
 class UserTagDeleteView(generics.DestroyAPIView):
-    queryset = UserTag.objects.all()
     serializer_class = UserTagSerializer
 
     @swagger_auto_schema(
         operation_summary="Удаление связи пользователя с тегом",
-        operation_description="Удаляет связь между пользователем и тегом")
-    def delete(self, request, username, tag, *args, **kwargs):
-        # Пытаемся найти объект UserTag по username и tag
+        operation_description="Удаляет связь между пользователем и тегом в указанной группе"
+    )
+    def delete(self, request, group_uuid, username, tag_code, *args, **kwargs):
         try:
-            instance = UserTag.objects.get(username=username, tag=tag)
-            self.perform_destroy(instance)
+            group = Group.objects.get(group_uuid=group_uuid)
+        except Group.DoesNotExist:
+            return Response(
+                {"error": "Группа не найдена."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            user = User.objects.get(username=username, group=group)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "Пользователь не найден в группе."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            tag = GroupTag.objects.get(code=tag_code, group=group)
+        except GroupTag.DoesNotExist:
+            return Response(
+                {"error": "Тег не найден в группе."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            user_tag = UserTag.objects.get(user=user, tag=tag)
+            user_tag.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         except UserTag.DoesNotExist:
             raise NotFound("Связь не найдена.")
