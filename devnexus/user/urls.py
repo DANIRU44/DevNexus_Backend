@@ -8,5 +8,6 @@ urlpatterns = [
     path("registration/", views.RegisterView.as_view(), name="registration"),
     path("me/", views.CurrentUserProfileView.as_view(), name="me"),
     path("<str:username>/", views.UserProfileView.as_view(), name="profile"),
+    path("<str:username>/<str:group_uuid>/", views.UserProfileGroupView.as_view(), name="profile_group"),
 ]
 
