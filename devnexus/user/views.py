@@ -3,10 +3,10 @@ from rest_framework.response import Response
 from rest_framework import mixins
 from django.contrib.auth import login
 from .serializers import *
-from group.serializers import CardSerializer, GroupSerializerForProfile
+from group.serializers import CardSerializer, GroupSerializerForProfile, UserTagSerializer
 from .permissions import IsOwnerOrReadOnly
 from user.models import User
-from group.models import Group, Card
+from group.models import Group, Card, UserTag, GroupTag
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
@@ -293,6 +293,50 @@ class UserProfileView(mixins.RetrieveModelMixin,
     )
     def put(self, request, *args, **kwargs):
         return self.update(request, *args, **kwargs)
+
+
+class UserProfileGroupView(mixins.RetrieveModelMixin,generics.GenericAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserProfileSerializer
+    # permission_classes = [permissions.IsAuthenticated]
+    lookup_field = 'username'
+
+    @swagger_auto_schema(
+        operation_summary="Получение профиля пользователя по конкретной группе",
+        operation_description="""
+        Получает данные профиля пользователя по конкретной группе.""")
+    def get(self, request, *args, **kwargs):
+        try:
+            user = self.get_object()
+
+            group_uuid = self.kwargs['group_uuid']
+            group = Group.objects.get(group_uuid=group_uuid)
+
+            cards = Card.objects.filter(group=group, assignee=user)
+            cards_data = CardSerializer(cards, many=True).data
+
+            # Вручную сериализуем теги пользователя, я не знаю почему не работает
+            user_tags = UserTag.objects.filter(
+                user=user,
+                tag__group=group
+            ).select_related('tag')
+
+            user_tags_data = [
+                {
+                    "tag_code": ut.tag.code,
+                    "tag_name": ut.tag.name,
+                    "tag_color": ut.tag.color
+                }
+                for ut in user_tags
+            ]
+
+            return Response({
+                "user": UserProfileSerializer(user).data,
+                "user_tags": user_tags_data,
+                "cards": cards_data
+            })
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
 
 
 class LoginView(generics.GenericAPIView):
