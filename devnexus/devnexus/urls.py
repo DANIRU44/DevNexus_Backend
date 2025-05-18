@@ -45,6 +45,6 @@ urlpatterns = [
     path('swagger<format>/', schema_view.without_ui(cache_timeout=0), name='schema-json'),
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
-    path('api/v1/user/', include("user.urls", namespace="user")),
-    path('api/v1/group/', include("group.urls", namespace="group")),
+    path('api/v1/users/', include("user.urls", namespace="user")),
+    path('api/v1/groups/', include("group.urls", namespace="group")),
 ]

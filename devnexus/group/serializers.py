@@ -144,11 +144,17 @@ class UserTagSerializer(serializers.ModelSerializer):
         tag_code = attrs.get('tag_code')
 
         try:
-            user = User.objects.get(username=username, group=group)
+            user = User.objects.get(username=username)
         except User.DoesNotExist:
             raise serializers.ValidationError(
-                {"username": "Пользователь не найден в этой группе."}
+                {"username": "Такого пользователя не существует"}
             )
+        
+        if user not in group.members.all():
+            raise serializers.ValidationError(
+                "Такого пользователя нет в группе."
+            )
+        
 
         try:
             tag = GroupTag.objects.get(code=tag_code, group=group)
@@ -161,6 +167,7 @@ class UserTagSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Связь между пользователем и тегом уже существует."
             )
+
 
         attrs['user'] = user
         attrs['tag'] = tag
