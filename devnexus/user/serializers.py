@@ -1,6 +1,9 @@
+from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from django.contrib.auth import authenticate
+from django.core import exceptions
 from user.models import User
+import re
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -17,54 +20,73 @@ class UserSerializer(serializers.ModelSerializer):
     
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    old_password = serializers.CharField(
-        write_only=True,
-        required=False,
-        allow_blank=True,
-    )
-    new_password = serializers.CharField(
-        write_only=True,
-        required=False,
-        allow_blank=True,
-        max_length=128
-    )
-
     class Meta:
         model = User
-        fields = ['username', 'email', 'old_password', 'new_password', 'description']
+        fields = ['username', 'email', 'description']
         extra_kwargs = {
             'username': {'required': False},
             'email': {'required': False},
             'description': {'required': False},
         }
 
-    def validate(self, data):
-        # Проверяем, что новый пароль не пустой, если передан
-        if 'new_password' in data and data['new_password'] == '':
-            raise serializers.ValidationError("Новый пароль не может быть пустым")
-        return data
-
     def update(self, instance, validated_data):
-        # Извлекаем пароли из данных
-        old_password = validated_data.pop('old_password', None)
-        new_password = validated_data.pop('new_password', None)
-
-        # Если пытаемся изменить пароль
-        if new_password:
-            if not old_password:
-                raise serializers.ValidationError("Для изменения пароля укажите текущий пароль")
-            
-            if not instance.check_password(old_password):
-                raise serializers.ValidationError("Неверный текущий пароль")
-            
-            instance.set_password(new_password)
-
-        # Обновляем остальные поля
+        
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        
         instance.save()
         return instance
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(
+        required=True,
+        write_only=True,
+        style={'input_type': 'password'}
+    )
+    new_password = serializers.CharField(
+        required=True,
+        write_only=True,
+        min_length=8,
+        style={'input_type': 'password'},
+        validators=[validate_password]
+    )
+
+    def validate_old_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Неверный текущий пароль")
+        return value
+
+    def validate_new_password(self, value):
+
+        errors = []
+    # Проверки всякие
+        if len(value) < 8:
+            errors.append("Пароль должен содержать минимум 8 символов")
+
+        if not re.findall(r'\d', value):
+            errors.append("Пароль должен содержать минимум 1 цифру")
+
+        if not re.findall(r'[A-Z]', value):
+            errors.append("Пароль должен содержать минимум 1 заглавную букву")
+            
+        if not re.findall(r'[a-z]', value):
+            errors.append("Пароль должен содержать минимум 1 строчную букву")
+            
+
+        if not re.findall(r'[!@#$%^&*()\-_=+{};:,<.>/?]', value):
+            errors.append("Пароль должен содержать минимум 1 специальный символ")
+
+        if errors:
+            raise serializers.ValidationError(errors)
+    # --------------------------------------
+
+        try:
+            validate_password(value)
+        except exceptions.ValidationError as e:
+            raise serializers.ValidationError(list(e.messages))
+        
+        return value
 
 
 class LoginSerializer(serializers.Serializer):
