@@ -1,6 +1,7 @@
 from rest_framework import generics, permissions
 from rest_framework.response import Response
-from rest_framework import mixins
+from rest_framework.views import APIView
+from rest_framework import mixins, status
 from django.contrib.auth import login
 from .serializers import *
 from group.serializers import CardSerializer, GroupSerializerForProfile, UserTagSerializer
@@ -293,6 +294,60 @@ class UserProfileView(mixins.RetrieveModelMixin,
     )
     def put(self, request, *args, **kwargs):
         return self.update(request, *args, **kwargs)
+    
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsOwnerOrReadOnly]
+    
+    @swagger_auto_schema(
+        operation_summary="Смена пароля",
+        operation_description="""
+        Изменяет пароль текущего пользователя.
+        Требует аутентификации и проверки старого пароля.
+        """,
+        request_body=ChangePasswordSerializer,
+        responses={
+            200: openapi.Response(
+                description="Пароль успешно изменен",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'status': openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            ),
+            400: openapi.Response(
+                description="Ошибка валидации",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'field_errors': openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            additional_properties=openapi.Schema(type=openapi.TYPE_STRING)
+                        )
+                    }
+                )
+            )
+        }
+    )
+    def put(self, request):
+        serializer = ChangePasswordSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+        
+        if serializer.is_valid():
+            user = request.user
+            user.set_password(serializer.validated_data['new_password'])
+            user.save()
+            
+            # update_session_auth_hash(request, user)
+            
+            return Response(
+                {"status": "Пароль успешно изменен"},
+                status=status.HTTP_200_OK
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class UserProfileGroupView(mixins.RetrieveModelMixin,generics.GenericAPIView):
