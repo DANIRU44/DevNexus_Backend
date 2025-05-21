@@ -87,7 +87,7 @@ WSGI_APPLICATION = 'devnexus.wsgi.application'
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql",
+        "ENGINE": config('ENGINE'),
         "NAME": config('DB_NAME'),
         "USER": config('DB_USER'),
         "PASSWORD": config('DB_PASSWORD'),
