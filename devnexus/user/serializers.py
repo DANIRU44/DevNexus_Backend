@@ -7,15 +7,54 @@ import re
 
 
 class UserSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(
+        write_only=True,
+        required=True,
+        min_length=8,
+        style={'input_type': 'password'},
+        validators=[validate_password],
+    )
+
     class Meta:
         model = User
         fields = ('id', 'username', 'email', 'password')
         extra_kwargs = {'password': {'write_only': True}}
+    
+    def validate_password(self, value):
+        errors = []
+    # Проверки всякие
+        if len(value) < 8:
+            errors.append("Пароль должен содержать минимум 8 символов")
+
+        if not re.findall(r'\d', value):
+            errors.append("Пароль должен содержать минимум 1 цифру")
+
+        if not re.findall(r'[A-Z]', value):
+            errors.append("Пароль должен содержать минимум 1 заглавную букву")
+            
+        if not re.findall(r'[a-z]', value):
+            errors.append("Пароль должен содержать минимум 1 строчную букву")
+            
+
+        if not re.findall(r'[!@#$%^&*()\-_=+{};:,<.>/?]', value):
+            errors.append("Пароль должен содержать минимум 1 специальный символ")
+
+        if errors:
+            raise serializers.ValidationError(errors)
+        
+        try:
+            validate_password(value)
+        except exceptions.ValidationError as e:
+            raise serializers.ValidationError(list(e.messages))
+    # --------------------------------------
+        return value
 
     def create(self, validated_data):
-        user = User(**validated_data)
-        user.set_password(validated_data['password'])
-        user.save()
+        user = User.objects.create_user(
+            username=validated_data['username'],
+            email=validated_data.get('email'),
+            password=validated_data['password']
+        )
         return user
     
 
@@ -47,18 +86,10 @@ class ChangePasswordSerializer(serializers.Serializer):
         required=True,
         write_only=True,
         min_length=8,
-        style={'input_type': 'password'},
-        validators=[validate_password]
+        style={'input_type': 'password'}
     )
 
-    def validate_old_password(self, value):
-        user = self.context['request'].user
-        if not user.check_password(value):
-            raise serializers.ValidationError("Неверный текущий пароль")
-        return value
-
     def validate_new_password(self, value):
-
         errors = []
     # Проверки всякие
         if len(value) < 8:
@@ -79,13 +110,18 @@ class ChangePasswordSerializer(serializers.Serializer):
 
         if errors:
             raise serializers.ValidationError(errors)
-    # --------------------------------------
-
+        
         try:
             validate_password(value)
         except exceptions.ValidationError as e:
             raise serializers.ValidationError(list(e.messages))
-        
+    # --------------------------------------
+        return value
+    
+    def validate_old_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Неверный текущий пароль")
         return value
 
 

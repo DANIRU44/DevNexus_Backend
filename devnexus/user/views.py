@@ -17,6 +17,61 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = UserSerializer
     permission_classes = [permissions.AllowAny]
 
+    @swagger_auto_schema(
+        operation_summary="Регистрация пользователя",
+        operation_description="""
+        Создает нового пользователя. Пароль должен содержать:
+        - Минимум 8 символов
+        - Цифру
+        - Заглавную и строчную букву
+        - Специальный символ
+        """,
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['username', 'password'],
+            properties={
+                'username': openapi.Schema(type=openapi.TYPE_STRING),
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL),
+                'password': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    format=openapi.FORMAT_PASSWORD,
+                    description="Пароль (минимум 8 символов, цифра, заглавная и строчная буква, спецсимвол)"
+                )
+            }
+        ),
+        responses={
+            201: openapi.Response(
+                description="Пользователь создан",
+                schema=UserSerializer
+            ),
+            400: openapi.Response(
+                description="Ошибка валидации",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            additional_properties=openapi.Schema(
+                                type=openapi.TYPE_ARRAY,
+                                items=openapi.Schema(type=openapi.TYPE_STRING)
+                            )
+                        )
+                    }
+                )
+            )
+        }
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            return Response(
+                {"status": "Пользователь успешно зарегистрирован"},
+                status=status.HTTP_201_CREATED
+            )
+        
+        return Response({"error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class CurrentUserProfileView(generics.RetrieveAPIView, mixins.UpdateModelMixin):
     serializer_class = UserProfileSerializer
@@ -304,16 +359,34 @@ class ChangePasswordView(APIView):
         operation_description="""
         Изменяет пароль текущего пользователя.
         Требует аутентификации и проверки старого пароля.
+        Новый пароль должен содержать:
+        - Минимум 8 символов
+        - Цифру
+        - Заглавную и строчную букву
+        - Специальный символ
         """,
-        request_body=ChangePasswordSerializer,
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['old_password', 'new_password'],
+            properties={
+                'old_password': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    format=openapi.FORMAT_PASSWORD,
+                    description="Текущий пароль"
+                ),
+                'new_password': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    format=openapi.FORMAT_PASSWORD,
+                    description="Новый пароль (минимум 8 символов, цифра, заглавная и строчная буква, спецсимвол)"
+                )
+            }
+        ),
         responses={
             200: openapi.Response(
                 description="Пароль успешно изменен",
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
-                    properties={
-                        'status': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
+                    properties={'status': openapi.Schema(type=openapi.TYPE_STRING)}
                 )
             ),
             400: openapi.Response(
@@ -321,9 +394,12 @@ class ChangePasswordView(APIView):
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
-                        'field_errors': openapi.Schema(
+                        'error': openapi.Schema(
                             type=openapi.TYPE_OBJECT,
-                            additional_properties=openapi.Schema(type=openapi.TYPE_STRING)
+                            additional_properties=openapi.Schema(
+                                type=openapi.TYPE_ARRAY,
+                                items=openapi.Schema(type=openapi.TYPE_STRING)
+                            )
                         )
                     }
                 )
@@ -347,7 +423,7 @@ class ChangePasswordView(APIView):
                 {"status": "Пароль успешно изменен"},
                 status=status.HTTP_200_OK
             )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class UserProfileGroupView(mixins.RetrieveModelMixin,generics.GenericAPIView):
