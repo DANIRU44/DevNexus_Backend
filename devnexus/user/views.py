@@ -118,6 +118,11 @@ class CurrentUserProfileView(generics.RetrieveAPIView, mixins.UpdateModelMixin):
                                                 'id': openapi.Schema(type=openapi.TYPE_INTEGER),
                                                 'title': openapi.Schema(type=openapi.TYPE_STRING),
                                                 'description': openapi.Schema(type=openapi.TYPE_STRING),
+                                                'column': openapi.Schema(type=openapi.TYPE_STRING),
+                                                'column_color': openapi.Schema(
+                                                type=openapi.TYPE_STRING,
+                                                description="Цвет колонки"
+                                            ),
                                             }
                                         )
                                     )
@@ -192,7 +197,6 @@ class CurrentUserProfileView(generics.RetrieveAPIView, mixins.UpdateModelMixin):
             return Response({"error": str(e)}, status=400)
 
 
- 
 class UserProfileView(mixins.RetrieveModelMixin,
                             mixins.UpdateModelMixin,
                             generics.GenericAPIView):
