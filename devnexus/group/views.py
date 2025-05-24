@@ -401,7 +401,8 @@ class GroupTagDetailView(mixins.RetrieveModelMixin,
         try:
             group = Group.objects.get(group_uuid=group_uuid)
             tag = GroupTag.objects.get(code=code, group=group)
-            return self.destroy(request, *args, **kwargs)
+            tag.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
         
         except Group.DoesNotExist:
             return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
@@ -449,35 +450,35 @@ class UserTagDeleteView(generics.DestroyAPIView):
     def delete(self, request, group_uuid, username, tag_code, *args, **kwargs):
         try:
             group = Group.objects.get(group_uuid=group_uuid)
-        except Group.DoesNotExist:
-            return Response(
-                {"error": "Группа не найдена."},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        try:
             user = User.objects.get(username=username, group=group)
-        except User.DoesNotExist:
-            return Response(
-                {"error": "Пользователь не найден в группе."},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        try:
             tag = GroupTag.objects.get(code=tag_code, group=group)
-        except GroupTag.DoesNotExist:
-            return Response(
-                {"error": "Тег не найден в группе."},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        try:
             user_tag = UserTag.objects.get(user=user, tag=tag)
             user_tag.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        except UserTag.DoesNotExist:
-            raise NotFound("Связь не найдена.")
+
+        except Group.DoesNotExist:
+            return Response(
+                {"error": "Группа не найдена."},
+                status=status.HTTP_404_NOT_FOUND)
         
+        except User.DoesNotExist:
+            return Response(
+                {"error": "Пользователь не найден в группе."},
+                status=status.HTTP_404_NOT_FOUND)
+        
+        except GroupTag.DoesNotExist:
+            return Response(
+                {"error": "Тег не найден в группе."},
+                status=status.HTTP_404_NOT_FOUND)
+        
+        except UserTag.DoesNotExist:
+            return Response(
+                {"error": "Связь не найден в группе."},
+                status=status.HTTP_404_NOT_FOUND)
+        
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
+
 
 class GroupCardTagCreateView(generics.CreateAPIView):
     serializer_class = GroupCardTagCreateSerializer
@@ -582,7 +583,8 @@ class GroupCardTagDetailView(mixins.RetrieveModelMixin,
         try:
             group = Group.objects.get(group_uuid=group_uuid)
             tag = CardTag.objects.get(code=code, group=group)
-            return self.destroy(request, *args, **kwargs)
+            tag.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
         
         except Group.DoesNotExist:
             return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
@@ -664,7 +666,7 @@ class ColumnBoardDetailView(mixins.RetrieveModelMixin,
     @swagger_auto_schema(operation_summary="Удаление колонки")
     def delete(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
-        column_id = self.kwargs['id']  # Используем 'id' вместо 'code'
+        column_id = self.kwargs['id']
         try:
             group = Group.objects.get(group_uuid=group_uuid)
             column = ColumnBoard.objects.get(id=column_id, group=group)
