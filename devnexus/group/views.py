@@ -42,6 +42,18 @@ class GroupCreateView(generics.CreateAPIView):
         group = serializer.save(admin=self.request.user)
         group.members.add(self.request.user)
 
+    def create(self, request, *args, **kwargs):
+
+        create_serializer = self.get_serializer(data=request.data)
+        create_serializer.is_valid(raise_exception=True)
+        self.perform_create(create_serializer)
+
+        output_serializer = GroupSerializer(create_serializer.instance)
+
+        return Response(
+            output_serializer.data,
+            status=status.HTTP_201_CREATED)
+
 
 class GroupDetailView(mixins.RetrieveModelMixin,
                       mixins.UpdateModelMixin,
@@ -99,16 +111,14 @@ class GroupDetailView(mixins.RetrieveModelMixin,
     def get(self, request, *args, **kwargs):
         group = self.get_object()
         serializer = self.get_serializer(group)
-        
-        # Исправленный запрос для тегов
+
         user_tags = UserTag.objects.filter(
             tag__group_id=group.group_uuid
         ).select_related('user', 'tag')
-        
-        # Группируем по ID пользователя (используем user.id вместо username)
+
         user_tags_mapping = defaultdict(list)
         for ut in user_tags:
-            user_tags_mapping[ut.user.username].append({  # Используем ID пользователя как ключ
+            user_tags_mapping[ut.user.username].append({
                 'code': ut.tag.code,
                 'name': ut.tag.name,
                 'color': ut.tag.color
@@ -116,12 +126,10 @@ class GroupDetailView(mixins.RetrieveModelMixin,
 
         # print(user_tags_mapping)
         response_data = serializer.data
-        
-        # Исправляем обращение к данным пользователя
+
         for member in response_data['members']:
             member['tags'] = user_tags_mapping.get(member['username'], [])
-        
-        # Остальная логика с колонками и карточками
+
         columns_queryset = ColumnBoard.objects.filter(group=group)
         columns_serializer = ColumnBoardSerializer(columns_queryset, many=True)
         columns_data = columns_serializer.data
@@ -154,11 +162,6 @@ class GroupDetailView(mixins.RetrieveModelMixin,
 
     def delete(self, request, *args, **kwargs):
         return self.destroy(request, *args, **kwargs)
-    
-    # def get_object(self):
-    #     # Переопределяем метод для получения группы по group_uuid
-    #     group_uuid = self.kwargs.get('group_uuid')
-    #     return get_object_or_404(Group, group_uuid=group_uuid)
 
     def perform_update(self, serializer):
         serializer.save()
@@ -199,7 +202,7 @@ class CardCreateView(generics.CreateAPIView):
     serializer_class = CardSerializer
 
     def get_serializer_context(self):
-        # Передаем группу в контекст сериализатора
+
         context = super().get_serializer_context()
         group_uuid = self.kwargs['group_uuid']
         try:
@@ -241,14 +244,13 @@ class CardDetailView(mixins.RetrieveModelMixin,
         group_uuid = self.kwargs['group_uuid']
         return Card.objects.filter(group__group_uuid=group_uuid)
 
-    # Добавьте этот метод
     def get_serializer_context(self):
         context = super().get_serializer_context()
         group_uuid = self.kwargs.get('group_uuid')
         try:
             context['group'] = Group.objects.get(group_uuid=group_uuid)
         except Group.DoesNotExist:
-            pass  # Ошибка обрабатывается в других местах
+            pass  # потом добавить перед релизом
         return context
 
     @swagger_auto_schema(
@@ -629,13 +631,13 @@ class ColumnBoardDetailView(mixins.RetrieveModelMixin,
                            generics.GenericAPIView):
     queryset = ColumnBoard.objects.all()
     serializer_class = ColumnBoardSerializer
-    lookup_field = 'id'  # Используем 'id' вместо 'code', так как в модели ColumnBoard нет поля 'code'
+    lookup_field = 'id'
 
     @swagger_auto_schema(
         operation_summary="Получение информации о колонке")
     def get(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
-        column_id = self.kwargs['id']  # Используем 'id' вместо 'code'
+        column_id = self.kwargs['id']
         try:
             group = Group.objects.get(group_uuid=group_uuid)
             column = ColumnBoard.objects.get(id=column_id, group=group)
@@ -651,7 +653,7 @@ class ColumnBoardDetailView(mixins.RetrieveModelMixin,
         operation_summary="Обновление колонки")
     def put(self, request, *args, **kwargs):
         group_uuid = self.kwargs['group_uuid']
-        column_id = self.kwargs['id']  # Используем 'id' вместо 'code'
+        column_id = self.kwargs['id']
         try:
             group = Group.objects.get(group_uuid=group_uuid)
             column = ColumnBoard.objects.get(id=column_id, group=group)
