@@ -322,13 +322,15 @@ class GroupTagCreateView(generics.CreateAPIView):
         color = serializer.validated_data['color']
 
         if GroupTag.objects.filter(name=name, color=color, group=group).exists():
-            raise ValidationError({"error": "Такой тег уже существует в этой группе."})
+            return Response({"error": "Такой тег уже существует в этой группе."}, status=status.HTTP_400_BAD_REQUEST)
 
-        self.perform_create(serializer, group)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        instance = GroupTag.objects.create(
+            group=group,
+            **serializer.validated_data
+        )
 
-    def perform_create(self, serializer, group):
-        serializer.save(group=group)
+        response_serializer = GroupTagSerializer(instance)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
 
 class GroupTagListView(generics.GenericAPIView):

@@ -18,7 +18,7 @@ urlpatterns = [
     path('<str:group_uuid>/tags/<str:code>/', GroupTagDetailView.as_view(), name='tag-detail'),
 
     path('<str:group_uuid>/usertags/create/', UserTagCreateView.as_view(), name='usertag-create'),
-    path('<str:group_uuid>/usertags/delete/<str:username>/<str:tag>/', UserTagDeleteView.as_view(), name='usertag-delete'),
+    path('<str:group_uuid>/usertags/delete/<str:username>/<str:tag_code>/', UserTagDeleteView.as_view(), name='usertag-delete'),
 
     path('<str:group_uuid>/cardtags/create/', GroupCardTagCreateView.as_view(), name='cardtag-create'),
     path('<str:group_uuid>/cardtags/all/', GroupCardTagListView.as_view(), name='group-cardtags-list'),
