@@ -22,7 +22,7 @@ class Group(models.Model):
 
 
 # решил разделить одну модель с тегами на две, так-как это позволит присваивать существующие теги, а не прописывать их каждый раз 
-class GroupTag(models.Model):
+class UserTag(models.Model):
     code = models.CharField(max_length=6, editable=False)
     name = models.CharField(max_length=50)
     color = models.CharField(max_length=20)
@@ -34,7 +34,7 @@ class GroupTag(models.Model):
     def save(self, *args, **kwargs):
         # Генерируем уникальный шестизначный код
         if not self.code:
-            last_card = GroupTag.objects.filter(group=self.group).order_by('code').last()
+            last_card = UserTag.objects.filter(group=self.group).order_by('code').last()
             if last_card:
                 last_code = int(last_card.code)
                 new_code = last_code + 1
@@ -48,9 +48,9 @@ class GroupTag(models.Model):
         return f"{self.name} ({self.group.name})"
 
 
-class UserTag(models.Model):
+class UserTagRelation(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    tag = models.ForeignKey(GroupTag, on_delete=models.CASCADE)
+    tag = models.ForeignKey(UserTag, on_delete=models.CASCADE)
 
     class Meta:
         unique_together = ('user', 'tag')

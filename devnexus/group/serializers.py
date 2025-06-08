@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from user.models import User
 from user.serializers import UserProfileSerializer
-from .models import Group, Card, GroupTag, UserTag, CardTag, ColumnBoard
+from .models import Group, Card, UserTag, UserTagRelation, CardTag, ColumnBoard
 
 
 class GroupCardTagSerializer(serializers.ModelSerializer):
@@ -118,27 +118,27 @@ class AddMemberToGroupSerializer(serializers.Serializer):
     username = serializers.CharField(required=True)
 
 
-class GroupTagCreateSerializer(serializers.ModelSerializer):
+class UserTagCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
-        model = GroupTag
+        model = UserTag
         fields = ['name', 'color']
 
 
-class GroupTagSerializer(serializers.ModelSerializer):
+class UserTagSerializer(serializers.ModelSerializer):
    
     class Meta:
-        model = GroupTag
+        model = UserTag
         fields = ['code', 'name', 'color']
         read_only_fields = ['id', 'code']
 
 
-class UserTagSerializer(serializers.ModelSerializer):
+class UserTagRelationSerializer(serializers.ModelSerializer):
     username = serializers.CharField(write_only=True)
     tag_code = serializers.CharField(write_only=True)
 
     class Meta:
-        model = UserTag
+        model = UserTagRelation
         fields = ['username', 'tag_code']
 
     def validate(self, attrs):
@@ -163,13 +163,13 @@ class UserTagSerializer(serializers.ModelSerializer):
         
 
         try:
-            tag = GroupTag.objects.get(code=tag_code, group=group)
-        except GroupTag.DoesNotExist:
+            tag = UserTag.objects.get(code=tag_code, group=group)
+        except UserTag.DoesNotExist:
             raise serializers.ValidationError(
                 {"tag_code": "Тег с таким кодом не найден в группе."}
             )
 
-        if UserTag.objects.filter(user=user, tag=tag).exists():
+        if UserTagRelation.objects.filter(user=user, tag=tag).exists():
             raise serializers.ValidationError(
                 "Связь между пользователем и тегом уже существует."
             )
