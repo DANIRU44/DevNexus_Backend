@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import mixins
 from rest_framework.exceptions import NotFound, ValidationError
-from .models import Group, Card, GroupTag, UserTag, CardTag, ColumnBoard
+from .models import Group, Card, UserTag, UserTagRelation, CardTag, ColumnBoard
 from user.models import User
 from .serializers import *
 from .permissions import IsGroupMember
@@ -112,7 +112,7 @@ class GroupDetailView(mixins.RetrieveModelMixin,
         group = self.get_object()
         serializer = self.get_serializer(group)
 
-        user_tags = UserTag.objects.filter(
+        user_tags = UserTagRelation.objects.filter(
             tag__group_id=group.group_uuid
         ).select_related('user', 'tag')
 
@@ -303,8 +303,8 @@ class CardDetailView(mixins.RetrieveModelMixin,
             return Response({"error": "Такой карточки не существует"}, status=status.HTTP_404_NOT_FOUND)
 
 
-class GroupTagCreateView(generics.CreateAPIView):
-    serializer_class = GroupTagCreateSerializer
+class UserTagCreateView(generics.CreateAPIView):
+    serializer_class = UserTagCreateSerializer
 
     @swagger_auto_schema(
         operation_summary="Создание тега для пользователей",
@@ -323,25 +323,25 @@ class GroupTagCreateView(generics.CreateAPIView):
         name = serializer.validated_data['name']
         color = serializer.validated_data['color']
 
-        if GroupTag.objects.filter(name=name, color=color, group=group).exists():
+        if UserTag.objects.filter(name=name, color=color, group=group).exists():
             return Response({"error": "Такой тег уже существует в этой группе."}, status=status.HTTP_400_BAD_REQUEST)
 
-        instance = GroupTag.objects.create(
+        instance = UserTag.objects.create(
             group=group,
             **serializer.validated_data
         )
 
-        response_serializer = GroupTagSerializer(instance)
+        response_serializer = UserTagSerializer(instance)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
 
-class GroupTagListView(generics.GenericAPIView):
-    serializer_class = GroupTagSerializer
+class UserTagListView(generics.GenericAPIView):
+    serializer_class = UserTagSerializer
 
     def get_queryset(self, group_uuid):
         try:
             group = Group.objects.get(group_uuid=group_uuid)
-            return GroupTag.objects.filter(group=group)
+            return UserTag.objects.filter(group=group)
         except Group.DoesNotExist:
             return None
 
@@ -356,12 +356,12 @@ class GroupTagListView(generics.GenericAPIView):
         return Response(serializer.data)
     
 
-class GroupTagDetailView(mixins.RetrieveModelMixin,
+class UserTagDetailView(mixins.RetrieveModelMixin,
                                    mixins.UpdateModelMixin,
                                    mixins.DestroyModelMixin,
                                    generics.GenericAPIView):
-    queryset = GroupTag.objects.all()
-    serializer_class = GroupTagSerializer
+    queryset = UserTag.objects.all()
+    serializer_class = UserTagSerializer
     lookup_field = 'code' 
 
     @swagger_auto_schema(
@@ -371,12 +371,12 @@ class GroupTagDetailView(mixins.RetrieveModelMixin,
         code = self.kwargs['code']
         try:
             group = Group.objects.get(group_uuid=group_uuid)
-            tag = GroupTag.objects.get(code=code, group=group)
-            serialized_grouptag = GroupTagSerializer(tag)
+            tag = UserTag.objects.get(code=code, group=group)
+            serialized_usertag = UserTagSerializer(tag)
 
-            return Response(serialized_grouptag.data) 
+            return Response(serialized_usertag.data) 
         
-        except GroupTag.DoesNotExist:
+        except UserTag.DoesNotExist:
             return Response({"error": "Такого тега не существует"}, status=status.HTTP_404_NOT_FOUND)
         except Group.DoesNotExist:
             return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
@@ -388,12 +388,12 @@ class GroupTagDetailView(mixins.RetrieveModelMixin,
         code = self.kwargs['code']
         try:
             group = Group.objects.get(group_uuid=group_uuid)
-            tag = GroupTag.objects.get(code=code, group=group)
+            tag = UserTag.objects.get(code=code, group=group)
             return self.update(request, *args, **kwargs)
         
         except Group.DoesNotExist:
             return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
-        except GroupTag.DoesNotExist:
+        except UserTag.DoesNotExist:
             return Response({"error": "Такого тега не существует"}, status=status.HTTP_404_NOT_FOUND)
 
     @swagger_auto_schema(
@@ -404,18 +404,18 @@ class GroupTagDetailView(mixins.RetrieveModelMixin,
 
         try:
             group = Group.objects.get(group_uuid=group_uuid)
-            tag = GroupTag.objects.get(code=code, group=group)
+            tag = UserTag.objects.get(code=code, group=group)
             tag.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         
         except Group.DoesNotExist:
             return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
-        except GroupTag.DoesNotExist:
+        except UserTag.DoesNotExist:
             return Response({"error": "Такого тега не существует"}, status=status.HTTP_404_NOT_FOUND)
         
 
-class UserTagCreateView(generics.CreateAPIView):
-    serializer_class = UserTagSerializer
+class UserTagRelationCreateView(generics.CreateAPIView):
+    serializer_class = UserTagRelationSerializer
 
     @swagger_auto_schema(
         operation_summary="Создание связи пользователя с тегом",
@@ -444,8 +444,8 @@ class UserTagCreateView(generics.CreateAPIView):
         )
 
 
-class UserTagDeleteView(generics.DestroyAPIView):
-    serializer_class = UserTagSerializer
+class UserTagRelationDeleteView(generics.DestroyAPIView):
+    serializer_class = UserTagRelationSerializer
 
     @swagger_auto_schema(
         operation_summary="Удаление связи пользователя с тегом",
@@ -455,8 +455,8 @@ class UserTagDeleteView(generics.DestroyAPIView):
         try:
             group = Group.objects.get(group_uuid=group_uuid)
             user = User.objects.get(username=username, group=group)
-            tag = GroupTag.objects.get(code=tag_code, group=group)
-            user_tag = UserTag.objects.get(user=user, tag=tag)
+            tag = UserTag.objects.get(code=tag_code, group=group)
+            user_tag = UserTagRelation.objects.get(user=user, tag=tag)
             user_tag.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -470,12 +470,12 @@ class UserTagDeleteView(generics.DestroyAPIView):
                 {"error": "Пользователь не найден в группе."},
                 status=status.HTTP_404_NOT_FOUND)
         
-        except GroupTag.DoesNotExist:
+        except UserTag.DoesNotExist:
             return Response(
                 {"error": "Тег не найден в группе."},
                 status=status.HTTP_404_NOT_FOUND)
         
-        except UserTag.DoesNotExist:
+        except UserTagRelation.DoesNotExist:
             return Response(
                 {"error": "Связь не найден в группе."},
                 status=status.HTTP_404_NOT_FOUND)
@@ -554,9 +554,9 @@ class GroupCardTagDetailView(mixins.RetrieveModelMixin,
         try:
             group = Group.objects.get(group_uuid=group_uuid)
             tag = CardTag.objects.get(code=code, group=group)
-            serialized_grouptag = GroupCardTagSerializer(tag)
+            serialized_usertag = GroupCardTagSerializer(tag)
 
-            return Response(serialized_grouptag.data) 
+            return Response(serialized_usertag.data) 
         
         except CardTag.DoesNotExist:
             return Response({"error": "Такого тега не существует"}, status=status.HTTP_404_NOT_FOUND)

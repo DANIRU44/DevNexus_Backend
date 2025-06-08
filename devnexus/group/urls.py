@@ -13,12 +13,12 @@ urlpatterns = [
     path('<str:group_uuid>/cards/all/', CardListView.as_view(), name='card-list'),
     path('<str:group_uuid>/cards/<str:code>/', CardDetailView.as_view(), name='card-detail'),
 
-    path('<str:group_uuid>/tags/create/', GroupTagCreateView.as_view(), name='tag-create'),
-    path('<str:group_uuid>/tags/all/', GroupTagListView.as_view(), name='group-tags-list'),
-    path('<str:group_uuid>/tags/<str:code>/', GroupTagDetailView.as_view(), name='tag-detail'),
+    path('<str:group_uuid>/usertags/create/', UserTagCreateView.as_view(), name='usertags-create'),
+    path('<str:group_uuid>/usertags/all/', UserTagListView.as_view(), name='user-tags-list'),
+    path('<str:group_uuid>/usertags/<str:code>/', UserTagDetailView.as_view(), name='usertags-detail'),
 
-    path('<str:group_uuid>/usertags/create/', UserTagCreateView.as_view(), name='usertag-create'),
-    path('<str:group_uuid>/usertags/delete/<str:username>/<str:tag_code>/', UserTagDeleteView.as_view(), name='usertag-delete'),
+    path('<str:group_uuid>/usertagsrelation/create/', UserTagRelationCreateView.as_view(), name='usertagsrelation-create'),
+    path('<str:group_uuid>/usertagsrelation/delete/<str:username>/<str:tag_code>/', UserTagRelationCreateView.as_view(), name='usertagsrelation-delete'),
 
     path('<str:group_uuid>/cardtags/create/', GroupCardTagCreateView.as_view(), name='cardtag-create'),
     path('<str:group_uuid>/cardtags/all/', GroupCardTagListView.as_view(), name='group-cardtags-list'),
