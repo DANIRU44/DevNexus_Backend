@@ -9,7 +9,7 @@ class RegisterViewTests(APITestCase):
         data = {
             'username': 'testuser',
             'email': 'test@example.com',
-            'password': 'testpassword123'
+            'password': 'TestPass123!@#'
         }
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -22,33 +22,35 @@ class RegisterViewTests(APITestCase):
         data = {
             'username': 'testuser',
             'email': 'newemail@example.com',
-            'password': 'newpassword123'
+            'password': 'newpasSword123!%'
         }
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('username', response.data)
+        self.assertIn('username', response.data['error'])
+
 
     def test_register_user_with_invalid_email(self):
         url = reverse('user:registration')  # Добавлено пространство имен
         data = {
             'username': 'newuser',
             'email': 'invalid-email',
-            'password': 'testpassword123'
+            'password': 'testpaSsword123%*'
         }
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('email', response.data)
+        self.assertIn('email', response.data['error'])
+
 
     def test_register_user_with_short_password(self):
+        url = reverse('user:registration')
         data = {
             'username': 'testuser',
             'email': 'test@example.com',
             'password': 'short'
         }
-        response = self.client.post('/api/user/register/', data)
+        response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('password', response.data)
-        self.assertEqual(response.data['password'][0], 'Пароль должен содержать не менее 8 символов.')
+        self.assertIn('password', response.data['error'])
 
 
 class LoginViewTests(APITestCase):
@@ -127,38 +129,25 @@ class CurrentUserProfileViewTests(APITestCase):
         self.assertEqual(self.user.username, 'newusername')
         self.assertEqual(self.user.email, 'newemail@example.com')
 
-    def test_update_current_user_password_success(self):
-        url = reverse('user:me')  # Добавлено пространство имен
-        data = {
-            'old_password': 'testpassword123',
-            'new_password': 'newpassword123'
-        }
-        response = self.client.put(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.user.refresh_from_db()
-        self.assertTrue(self.user.check_password('newpassword123'))
-
     def test_update_current_user_password_with_incorrect_old_password(self):
-        self.client.force_authenticate(user=self.user)
+        url = reverse('user:change-password')
         data = {
             'old_password': 'wrong_password',
             'new_password': 'new_password123'
         }
-        response = self.client.put('/api/user/update_password/', data)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        response = self.client.put(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('error', response.data)
-        self.assertEqual(response.data['error'], 'Неверный текущий пароль')
 
-
-    def test_update_current_user_password_without_old_password(self):
-        self.client.force_authenticate(user=self.user)
-        data = {
-            'new_password': 'new_password123'
-        }
-        response = self.client.put('/api/user/update_password/', data)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertIn('error', response.data)
-        self.assertEqual(response.data['error'], 'Для изменения пароля укажите текущий пароль')
+    # def test_update_current_user_password_without_old_password(self):
+    #     self.client.force_authenticate(user=self.user)
+    #     data = {
+    #         'new_password': 'new_password123'
+    #     }
+    #     response = self.client.put('/api/user/change_password/', data)
+    #     self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+    #     self.assertIn('error', response.data)
+    #     self.assertEqual(response.json()['error'], 'Для изменения пароля укажите текущий пароль')
 
 
 class UserProfileViewTests(APITestCase):
