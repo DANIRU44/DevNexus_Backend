@@ -13,9 +13,9 @@ urlpatterns = [
     path('<str:group_uuid>/cards/all/', CardListView.as_view(), name='card-list'),
     path('<str:group_uuid>/cards/<str:code>/', CardDetailView.as_view(), name='card-detail'),
 
-    path('<str:group_uuid>/tags/create/', UserTagCreateView.as_view(), name='tag-create'),
-    path('<str:group_uuid>/tags/all/', UserTagListView.as_view(), name='group-tags-list'),
-    path('<str:group_uuid>/tags/<str:code>/', UserTagDetailView.as_view(), name='tag-detail'),
+    path('<str:group_uuid>/usertags/create/', UserTagCreateView.as_view(), name='usertags-create'),
+    path('<str:group_uuid>/usertags/all/', UserTagListView.as_view(), name='user-tags-list'),
+    path('<str:group_uuid>/usertags/<str:code>/', UserTagDetailView.as_view(), name='usertags-detail'),
 
     path('<str:group_uuid>/usertagsrelation/create/', UserTagRelationCreateView.as_view(), name='usertagsrelation-create'),
     path('<str:group_uuid>/usertagsrelation/delete/<str:username>/<str:tag_code>/', UserTagRelationCreateView.as_view(), name='usertagsrelation-delete'),
