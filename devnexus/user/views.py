@@ -4,10 +4,10 @@ from rest_framework.views import APIView
 from rest_framework import mixins, status
 from django.contrib.auth import login
 from .serializers import *
-from group.serializers import CardSerializer, GroupSerializerForProfile, UserTagSerializer
+from group.serializers import CardSerializer, GroupSerializerForProfile, UserTagRelationSerializer
 from .permissions import IsOwnerOrReadOnly
 from user.models import User
-from group.models import Group, Card, UserTag, GroupTag
+from group.models import Group, Card, UserTagRelation, UserTag
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
@@ -451,7 +451,7 @@ class UserProfileGroupView(mixins.RetrieveModelMixin,generics.GenericAPIView):
             cards_data = CardSerializer(cards, many=True).data
 
             # Вручную сериализуем теги пользователя, я не знаю почему не работает
-            user_tags = UserTag.objects.filter(
+            user_tags = UserTagRelation.objects.filter(
                 user=user,
                 tag__group=group
             ).select_related('tag')
