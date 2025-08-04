@@ -208,7 +208,7 @@ class CardCreateView(generics.CreateAPIView):
         try:
             context['group'] = Group.objects.get(group_uuid=group_uuid)
         except Group.DoesNotExist:
-            raise Http404("Группа не найдена")
+            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
         return context
 
     @swagger_auto_schema(
@@ -250,7 +250,7 @@ class CardDetailView(mixins.RetrieveModelMixin,
         try:
             context['group'] = Group.objects.get(group_uuid=group_uuid)
         except Group.DoesNotExist:
-            pass  # потом добавить перед релизом
+            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
         return context
 
     @swagger_auto_schema(
