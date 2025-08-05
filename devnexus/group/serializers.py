@@ -13,22 +13,6 @@ class GroupCardTagSerializer(serializers.ModelSerializer):
 
 
 class CardSerializer(serializers.ModelSerializer):
-    assignee = serializers.CharField()
-    column = serializers.SlugRelatedField(
-        slug_field='name',
-        queryset=ColumnBoard.objects.none()
-    ) #лютейший костыль
-
-    column_color = serializers.CharField(source='column.color', read_only=True)
-    tags = GroupCardTagSerializer(many=True, required=False)
-
-    class Meta:
-        model = Card
-        fields = [
-            'code', 'title', 'description', 
-            'column', 'column_color', 'assignee', 
-            'start_date', 'end_date', 'tags'
-        ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -36,70 +20,63 @@ class CardSerializer(serializers.ModelSerializer):
         if group:
             self.fields['column'].queryset = ColumnBoard.objects.filter(group=group)
 
-    def create(self, validated_data):
-        # Извлекаем данные для тегов
-        tags_data = validated_data.pop('tags', [])
-        column = validated_data.pop('column')
-        assignee_username = validated_data.pop('assignee')
-        group = self.context['group']
 
-        # Получаем пользователя
-        try:
-            user = User.objects.get(username=assignee_username)
-        except User.DoesNotExist:
-            raise serializers.ValidationError({"assignee": "Пользователь не найден"})
+    column = serializers.SlugRelatedField(
+        slug_field='name',
+        queryset=ColumnBoard.objects.none(),
+        required=True
+    )
 
-        # Создаем карточку
-        card = Card.objects.create(
-            column=column,
-            assignee=user,
-            group=group,
-            **validated_data
-        )
-
-        tags = []
-        for tag_data in tags_data:
-            tag, _ = CardTag.objects.get_or_create(
-                group=group,
-                **tag_data
-            )
-            tags.append(tag)
-        
-        card.tags.set(tags)
-
-        return card
-    
-    def update(self, instance, validated_data):
-
-        assignee_username = validated_data.pop('assignee', None)
-        if assignee_username:
-            try:
-                user = User.objects.get(username=assignee_username)
-                instance.assignee = user
-            except User.DoesNotExist:
-                raise serializers.ValidationError({"assignee": "Пользователь не найден"})
-
-        tags_data = validated_data.pop('tags', [])
-        tags = []
-        for tag_data in tags_data:
-            tag, _ = CardTag.objects.get_or_create(
-                group=instance.group,
-                **tag_data
-            )
-            tags.append(tag)
-        instance.tags.set(tags)
-
-        return super().update(instance, validated_data)
-
-
-class GroupSerializer(serializers.ModelSerializer):
-    members = UserProfileSerializer(many=True, read_only=True)
-    admin = UserProfileSerializer(read_only=True)
+    assignee = serializers.SlugRelatedField(
+        slug_field='username',
+        queryset=User.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    tags = GroupCardTagSerializer(many=True, required=False)
 
     class Meta:
-        model = Group
-        fields = ['id', 'group_uuid', 'name', 'icon', 'members', 'description', 'admin']
-        read_only_fields = ['admin', 'group_uuid']
+        model = Card
+        fields = ['title', 'description', 'column', 'assignee', 'tags', 'code']
+        read_only_fields = ['code']
+
+    def validate(self, data):
+        group = self.context.get('group')
+        if group is None:
+            raise serializers.ValidationError("Group not found")
+        if 'column' in data and data['column'].group != group:
+            raise serializers.ValidationError("Column does not belong to this group.")
+        if 'assignee' in data and data['assignee'] and not group.members.filter(id=data['assignee'].id).exists():
+            raise serializers.ValidationError("Assignee must be a group member.")
+        return data
+
+    def create(self, validated_data):
+        tags_data = validated_data.pop('tags', [])
+        card = Card.objects.create(**validated_data)
+        for tag_data in tags_data:
+            tag, _ = CardTag.objects.get_or_create(group=card.group, **tag_data)
+            card.tags.add(tag)
+        return card
+
+    def update(self, instance, validated_data):
+        tags_data = validated_data.pop('tags', [])
+        instance = super().update(instance, validated_data)
+        if tags_data:
+            instance.tags.clear()
+            for tag_data in tags_data:
+                tag, _ = CardTag.objects.get_or_create(group=instance.group, **tag_data)
+                instance.tags.add(tag)
+        return instance
+    
+
+# class GroupSerializer(serializers.ModelSerializer):
+#     members = UserProfileSerializer(many=True, read_only=True)
+#     admin = UserProfileSerializer(read_only=True)
+
+#     class Meta:
+#         model = Group
+#         fields = ['id', 'group_uuid', 'name', 'icon', 'members', 'description', 'admin']
+#         read_only_fields = ['admin', 'group_uuid']
 
 
 class GroupCreateSerializer(serializers.ModelSerializer):
@@ -133,58 +110,6 @@ class UserTagSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'code']
 
 
-class UserTagRelationSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(write_only=True)
-    tag_code = serializers.CharField(write_only=True)
-
-    class Meta:
-        model = UserTagRelation
-        fields = ['username', 'tag_code']
-
-    def validate(self, attrs):
-        group = self.context.get('group')
-        if not group:
-            raise serializers.ValidationError("Группа не указана.")
-
-        username = attrs.get('username')
-        tag_code = attrs.get('tag_code')
-
-        try:
-            user = User.objects.get(username=username)
-        except User.DoesNotExist:
-            raise serializers.ValidationError(
-                {"username": "Такого пользователя не существует"}
-            )
-        
-        if user not in group.members.all():
-            raise serializers.ValidationError(
-                "Такого пользователя нет в группе."
-            )
-        
-
-        try:
-            tag = UserTag.objects.get(code=tag_code, group=group)
-        except UserTag.DoesNotExist:
-            raise serializers.ValidationError(
-                {"tag_code": "Тег с таким кодом не найден в группе."}
-            )
-
-        if UserTagRelation.objects.filter(user=user, tag=tag).exists():
-            raise serializers.ValidationError(
-                "Связь между пользователем и тегом уже существует."
-            )
-
-
-        attrs['user'] = user
-        attrs['tag'] = tag
-        return attrs
-
-    def create(self, validated_data):
-        validated_data.pop('username', None)
-        validated_data.pop('tag_code', None)
-        return super().create(validated_data)
-
-
 class GroupCardTagCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -197,3 +122,38 @@ class ColumnBoardSerializer(serializers.ModelSerializer):
         model = ColumnBoard
         fields = ['id', 'name', 'color']
         read_only_fields = ['id']
+
+
+class GroupSerializer(serializers.ModelSerializer):
+    members = UserProfileSerializer(many=True, read_only=True)
+    board = ColumnBoardSerializer(many=True, read_only=True, source='columnboard_set')
+
+    class Meta:
+        model = Group
+        fields = ['name', 'description', 'group_uuid', 'members', 'board']
+        read_only_fields = ['group_uuid', 'members', 'board']
+
+
+class UserTagRelationSerializer(serializers.ModelSerializer):
+    username = serializers.SlugRelatedField(
+        slug_field='username',
+        queryset=User.objects.all(),
+        source='user'
+    )
+    tag_code = serializers.SlugRelatedField(
+        slug_field='code',
+        queryset=UserTag.objects.all(),
+        source='tag'
+    )
+
+    class Meta:
+        model = UserTagRelation
+        fields = ['username', 'tag_code']
+
+    def validate(self, data):
+        group = self.context['view'].group
+        if data['user'] and not group.members.filter(id=data['user'].id).exists():
+            raise serializers.ValidationError("User must be a group member.")
+        if data['tag'].group != group:
+            raise serializers.ValidationError("Tag does not belong to this group.")
+        return data

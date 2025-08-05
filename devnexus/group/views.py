@@ -62,7 +62,7 @@ class GroupDetailView(mixins.RetrieveModelMixin,
     
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
-    # permission_classes = [IsGroupMember] отключу на время тестирования
+    permission_classes = [IsGroupMember]
     lookup_field = 'group_uuid'
 
     @swagger_auto_schema(
@@ -168,48 +168,51 @@ class GroupDetailView(mixins.RetrieveModelMixin,
 
 
 class AddMemberToGroupView(mixins.UpdateModelMixin,
-                            generics.GenericAPIView):
+                           generics.GenericAPIView):
     queryset = Group.objects.all()
     serializer_class = AddMemberToGroupSerializer
-    # permission_classes = [IsGroupMember] отключу на время тестирования
+    permission_classes = [IsGroupMember]  # Включено для продакшена
     lookup_field = 'group_uuid'
-    
-    
+
     @swagger_auto_schema(
         operation_summary="Добавление участника в группу",
-        operation_description="Добавляет пользователя в группу по его username")
+
+
+operation_description="Добавляет пользователя в группу по его username"
+    )
     def put(self, request, *args, **kwargs):
-            group = self.get_object()
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            username = serializer.validated_data['username']
+        group = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        username = serializer.validated_data['username']
 
-            try:
-                user = User.objects.get(username=username)
-            except User.DoesNotExist:
-                return Response({"error": "Пользователь не найден."}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            raise NotFound("User not found")
 
-            if user in group.members.all():
-                return Response({"error": "Пользователь уже является участником группы."}, status=status.HTTP_400_BAD_REQUEST)
+        if user in group.members.all():
+            raise ValidationError({"username": "User is already a member of the group"})
 
-            group.members.add(user)
-            group.save()
+        group.members.add(user)
+        group.save()
 
-            return Response({"success": "Пользователь успешно добавлен в группу."}, status=status.HTTP_200_OK)
-
+        return Response({"success": "User successfully added to the group"}, status=status.HTTP_200_OK)
+    
 
 class CardCreateView(generics.CreateAPIView):
     serializer_class = CardSerializer
+    permission_classes = [IsGroupMember]
 
     def get_serializer_context(self):
-
         context = super().get_serializer_context()
         group_uuid = self.kwargs['group_uuid']
         try:
             context['group'] = Group.objects.get(group_uuid=group_uuid)
         except Group.DoesNotExist:
-            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
+            raise Http404("Group not found")
         return context
+
 
     @swagger_auto_schema(
         operation_summary="Создание карточки",
@@ -233,13 +236,13 @@ class CardListView(generics.GenericAPIView):
 
 
 class CardDetailView(mixins.RetrieveModelMixin,
-                                   mixins.UpdateModelMixin,
-                                   mixins.DestroyModelMixin,
-                                   generics.GenericAPIView):
-    
+                     mixins.UpdateModelMixin,
+                     mixins.DestroyModelMixin,
+                     generics.GenericAPIView):
     serializer_class = CardSerializer
     lookup_field = 'code'
-    
+    permission_classes = [IsGroupMember]  # Включено для продакшена
+
     def get_queryset(self):
         group_uuid = self.kwargs['group_uuid']
         return Card.objects.filter(group__group_uuid=group_uuid)
@@ -250,57 +253,53 @@ class CardDetailView(mixins.RetrieveModelMixin,
         try:
             context['group'] = Group.objects.get(group_uuid=group_uuid)
         except Group.DoesNotExist:
-            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
+            raise Http404("Group not found")
         return context
 
-    @swagger_auto_schema(
-        operation_summary="Получение информации о карточке")
+    @swagger_auto_schema(operation_summary="Получение информации о карточке")
     def get(self, request, *args, **kwargs):
-        group_uuid = self.kwargs['group_uuid']
-        code = self.kwargs['code']
-        try:
-            group = Group.objects.get(group_uuid=group_uuid)
-            card = Card.objects.get(code=code, group=group)
-            serialized_card = CardSerializer(card)
+        return self.retrieve(request, *args, **kwargs)
 
-            return Response(serialized_card.data) 
-        
-        except Card.DoesNotExist:
-            return Response({"error": "Такой карточки не существует"}, status=status.HTTP_404_NOT_FOUND)
-        except Group.DoesNotExist:
-            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
-
-    @swagger_auto_schema(
-        operation_summary="Обновление карточки")
+    @swagger_auto_schema(operation_summary="Обновление карточки")
     def put(self, request, *args, **kwargs):
-        group_uuid = self.kwargs['group_uuid']
-        code = self.kwargs['code']
-        try:
-            group = Group.objects.get(group_uuid=group_uuid)
-            card = Card.objects.get(code=code, group=group)
-            print(CardSerializer(card).data)
-            return self.update(request, *args, **kwargs)
-        
-        except Group.DoesNotExist:
-            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
-        except Card.DoesNotExist:
-            return Response({"error": "Такой карточки не существует"}, status=status.HTTP_404_NOT_FOUND)
+        return self.update(request, *args, **kwargs)
 
-    @swagger_auto_schema(
-        operation_summary="Удаление карточки")
+    @swagger_auto_schema(operation_summary="Удаление карточки")
     def delete(self, request, *args, **kwargs):
-        group_uuid = self.kwargs['group_uuid']
-        code = self.kwargs['code']
+        return self.destroy(request, *args, **kwargs)
 
+class UserTagDetailView(mixins.RetrieveModelMixin,
+                        mixins.UpdateModelMixin,
+                        mixins.DestroyModelMixin,
+                        generics.GenericAPIView):
+    serializer_class = UserTagSerializer
+    lookup_field = 'code'
+    permission_classes = [IsGroupMember]  # Включено для продакшена
+
+    def getueryset(self):
+        group_uuid = self.kwargs['group_uuid']
+        return UserTag.objects.filter(group__group_uuid=group_uuid)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        group_uuid = self.kwargs.get('group_uuid')
         try:
-            group = Group.objects.get(group_uuid=group_uuid)
-            card = Card.objects.get(code=code, group=group)
-            return self.destroy(request, *args, **kwargs)
-        
+            context['group'] = Group.objects.get(group_uuid=group_uuid)
         except Group.DoesNotExist:
-            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
-        except Card.DoesNotExist:
-            return Response({"error": "Такой карточки не существует"}, status=status.HTTP_404_NOT_FOUND)
+            raise Http404("Group not found")
+        return context
+
+    @swagger_auto_schema(operation_summary="Получение информации о теге для пользователей")
+    def get(self, request, *args, **kwargs):
+        return self.retrieve(request, *args, **kwargs)
+
+    @swagger_auto_schema(operation_summary="Обновление тега для пользователей")
+    def put(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
+
+    @swagger_auto_schema(operation_summary="Удаление тега для пользователей")
+    def delete(self, request, *args, **kwargs):
+        return self.destroy(request, *args, **kwargs)
 
 
 class UserTagCreateView(generics.CreateAPIView):
@@ -539,61 +538,38 @@ class GroupCardTagListView(generics.GenericAPIView):
 
 
 class GroupCardTagDetailView(mixins.RetrieveModelMixin,
-                                   mixins.UpdateModelMixin,
-                                   mixins.DestroyModelMixin,
-                                   generics.GenericAPIView):
-    queryset = CardTag.objects.all()
+                             mixins.UpdateModelMixin,
+                             mixins.DestroyModelMixin,
+                             generics.GenericAPIView):
     serializer_class = GroupCardTagSerializer
-    lookup_field = 'code' 
+    lookup_field = 'code'
+    permission_classes = [IsGroupMember]  # Включено для продакшена
 
-    @swagger_auto_schema(
-        operation_summary="Получение информации о теге карточек")
+    def get_queryset(self):
+        group_uuid = self.kwargs['group_uuid']
+        return CardTag.objects.filter(group__group_uuid=group_uuid)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        group_uuid = self.kwargs.get('group_uuid')
+        try:
+            context['group'] = Group.objects.get(group_uuid=group_uuid)
+        except Group.DoesNotExist:
+            raise Http404("Group not found")
+        return context
+
+    @swagger_auto_schema(operation_summary="Получение информации о теге карточек")
     def get(self, request, *args, **kwargs):
-        group_uuid = self.kwargs['group_uuid']
-        code = self.kwargs['code']
-        try:
-            group = Group.objects.get(group_uuid=group_uuid)
-            tag = CardTag.objects.get(code=code, group=group)
-            serialized_usertag = GroupCardTagSerializer(tag)
+        return self.retrieve(request, *args, **kwargs)
 
-            return Response(serialized_usertag.data) 
-        
-        except CardTag.DoesNotExist:
-            return Response({"error": "Такого тега не существует"}, status=status.HTTP_404_NOT_FOUND)
-        except Group.DoesNotExist:
-            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
-
-    @swagger_auto_schema(
-        operation_summary="Обновление тега карточек")
+    @swagger_auto_schema(operation_summary="Обновление тега карточек")
     def put(self, request, *args, **kwargs):
-        group_uuid = self.kwargs['group_uuid']
-        code = self.kwargs['code']
-        try:
-            group = Group.objects.get(group_uuid=group_uuid)
-            tag = CardTag.objects.get(code=code, group=group)
-            return self.update(request, *args, **kwargs)
-        
-        except Group.DoesNotExist:
-            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
-        except CardTag.DoesNotExist:
-            return Response({"error": "Такого тега не существует"}, status=status.HTTP_404_NOT_FOUND)
+        return self.update(request, *args, **kwargs)
 
-    @swagger_auto_schema(
-        operation_summary="Удаление тега карточек")
+    @swagger_auto_schema(operation_summary="Удаление тега карточек")
     def delete(self, request, *args, **kwargs):
-        group_uuid = self.kwargs['group_uuid']
-        code = self.kwargs['code']
+        return self.destroy(request, *args, **kwargs)
 
-        try:
-            group = Group.objects.get(group_uuid=group_uuid)
-            tag = CardTag.objects.get(code=code, group=group)
-            tag.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        
-        except Group.DoesNotExist:
-            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
-        except CardTag.DoesNotExist:
-            return Response({"error": "Такого тега не существует"}, status=status.HTTP_404_NOT_FOUND)
         
 
 class ColumnBoardCreateView(generics.CreateAPIView):
@@ -626,58 +602,34 @@ class ColumnBoardCreateView(generics.CreateAPIView):
 
 
 class ColumnBoardDetailView(mixins.RetrieveModelMixin,
-                           mixins.UpdateModelMixin,
-                           mixins.DestroyModelMixin,
-                           generics.GenericAPIView):
-    queryset = ColumnBoard.objects.all()
+                            mixins.UpdateModelMixin,
+                            mixins.DestroyModelMixin,
+                            generics.GenericAPIView):
     serializer_class = ColumnBoardSerializer
     lookup_field = 'id'
+    permission_classes = [IsGroupMember]  # Включено для продакшена
 
-    @swagger_auto_schema(
-        operation_summary="Получение информации о колонке")
+    def get_queryset(self):
+        group_uuid = self.kwargs['group_uuid']
+        return ColumnBoard.objects.filter(group__group_uuid=group_uuid)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        group_uuid = self.kwargs.get('group_uuid')
+        try:
+            context['group'] = Group.objects.get(group_uuid=group_uuid)
+        except Group.DoesNotExist:
+            raise Http404("Group not found")
+        return context
+
+    @swagger_auto_schema(operation_summary="Получение информации о колонке")
     def get(self, request, *args, **kwargs):
-        group_uuid = self.kwargs['group_uuid']
-        column_id = self.kwargs['id']
-        try:
-            group = Group.objects.get(group_uuid=group_uuid)
-            column = ColumnBoard.objects.get(id=column_id, group=group)
-            serialized_column = ColumnBoardSerializer(column)
-            return Response(serialized_column.data)
-        
-        except ColumnBoard.DoesNotExist:
-            return Response({"error": "Такой колонки не существует"}, status=status.HTTP_404_NOT_FOUND)
-        except Group.DoesNotExist:
-            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
+        return self.retrieve(request, *args, **kwargs)
 
-    @swagger_auto_schema(
-        operation_summary="Обновление колонки")
+    @swagger_auto_schema(operation_summary="Обновление колонки")
     def put(self, request, *args, **kwargs):
-        group_uuid = self.kwargs['group_uuid']
-        column_id = self.kwargs['id']
-        try:
-            group = Group.objects.get(group_uuid=group_uuid)
-            column = ColumnBoard.objects.get(id=column_id, group=group)
-            serializer = self.get_serializer(column, data=request.data, partial=True)
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response(serializer.data)
-        
-        except ColumnBoard.DoesNotExist:
-            return Response({"error": "Такой колонки не существует"}, status=status.HTTP_404_NOT_FOUND)
-        except Group.DoesNotExist:
-            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
+        return self.update(request, *args, **kwargs)
 
     @swagger_auto_schema(operation_summary="Удаление колонки")
     def delete(self, request, *args, **kwargs):
-        group_uuid = self.kwargs['group_uuid']
-        column_id = self.kwargs['id']
-        try:
-            group = Group.objects.get(group_uuid=group_uuid)
-            column = ColumnBoard.objects.get(id=column_id, group=group)
-            column.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        
-        except ColumnBoard.DoesNotExist:
-            return Response({"error": "Такой колонки не существует"}, status=status.HTTP_404_NOT_FOUND)
-        except Group.DoesNotExist:
-            return Response({"error": "Такой группы не существует"}, status=status.HTTP_404_NOT_FOUND)
+        return self.destroy(request, *args, **kwargs)
